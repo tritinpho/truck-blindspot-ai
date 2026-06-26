@@ -92,3 +92,18 @@ docker compose -f deploy/docker-compose.yml up -d
 # 3. Smoke-test the contract end-to-end (with the broker up)
 python tools/publish_sample.py            # publishes bsw/sensor/right_mid
 ```
+
+### Run the vertical slice (S1) — broker up, then three terminals
+
+```bash
+# terminal 1 — fusion engine (sensor -> zone severity)
+cd services/fusion-engine && pip install -r requirements.txt && python -m fusion
+
+# terminal 2 — scripted object approaching/retreating on the RIGHT sensor
+python tools/sim_drive.py
+
+# terminal 3 — HMI (open the printed http://localhost:5173)
+cd apps/hmi && npm install && npm run dev
+```
+
+The RIGHT zone should walk **SAFE → CAUTION → DANGER → back** as the object closes and retreats.
