@@ -26,6 +26,8 @@ jobs:
   # End-to-end over a REAL broker (build-plan S5 #1): bring up broker + fusion from the very
   # docker-compose.yml we ship, then publish scenarios live and assert on bsw/zone. BSW_REQUIRE_BROKER
   # turns the test's self-skip into a hard failure, so a broken stack fails the job (not silently skips).
+  # It also builds the --profile hmi image: nothing else in CI exercises that build, so without this a
+  # tsc/vite break (e.g. the single-source config dropping out of the build context) would ship undetected.
   integration:
     runs-on: ubuntu-latest
     steps:
@@ -36,6 +38,8 @@ jobs:
       - run: pip install -r tests/requirements.txt paho-mqtt
       - name: Bring up broker + fusion (the shipped compose stack)
         run: docker compose -f deploy/docker-compose.yml up -d --build
+      - name: Build the in-cabin HMI image (no broker-side test, but its build must not regress)
+        run: docker compose -f deploy/docker-compose.yml --profile hmi build hmi
       - name: Broker-backed integration test
         env:
           BSW_REQUIRE_BROKER: "1"
