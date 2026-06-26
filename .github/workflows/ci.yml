@@ -5,9 +5,9 @@ on:
   pull_request:
 
 jobs:
-  # L1 — contract tests: every wire message + both config files validate against schemas/.
-  # (L2 fusion unit tests and L3 scenario tests are added in S2 and S4.)
-  contract-tests:
+  # L1 contract + L2 fusion logic + L3 scenario suite (sim/real parity, ADR-0005). All run
+  # without hardware or a broker; L3 replays S1-S6 + faults through the real fusion engine.
+  tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,5 +15,6 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r tests/requirements.txt
-      - run: pytest -q tests/                         # L1 contract tests
-      - run: pytest -q services/fusion-engine/tests   # L2 fusion logic (grows in S2)
+      - run: pytest -q tests/test_contracts.py                       # L1 — contract tests
+      - run: pytest -q services/fusion-engine/tests                  # L2 — fusion logic
+      - run: pytest -q tests/test_scenarios.py tests/test_tools.py   # L3 — scenarios + eval-tool cores
