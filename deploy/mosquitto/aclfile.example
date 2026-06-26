@@ -1,0 +1,49 @@
+# Example per-client ACL for the BSW vehicle pilot — least privilege (docs/22).
+#
+# The dev/demo broker is anonymous by design (mosquitto.conf). For the pilot, copy this file to
+# `aclfile`, fill in the real sensor ids, and enable it in mosquitto.conf:
+#
+#     allow_anonymous false
+#     password_file /mosquitto/config/passwordfile      # mosquitto_passwd -c passwordfile fusion …
+#     acl_file      /mosquitto/config/aclfile
+#
+# Mosquitto ACL semantics: `topic write` = the user may PUBLISH; `topic read` = may SUBSCRIBE/receive.
+# Usernames here must match the credentials each node connects with (mosquitto_passwd).
+
+# --- Fusion engine: the ONLY publisher of zone state + its own health; consumes every input. ------
+user fusion
+topic write bsw/zone/#
+topic write bsw/health/fusion
+topic read  bsw/sensor/#
+topic read  bsw/detection/#
+topic read  bsw/vehicle
+topic read  bsw/cmd/#
+
+# --- In-cabin HMI: consumes zone/health/diagnostics; the ONLY publisher of commands. --------------
+user hmi
+topic read  bsw/zone/#
+topic read  bsw/health/#
+topic read  bsw/sensor/#
+topic read  bsw/detection/#
+topic write bsw/cmd/fusion
+
+# --- Vehicle adapter: publishes context + its own health only. ------------------------------------
+user vehicle
+topic write bsw/vehicle
+topic write bsw/health/vehicle
+
+# --- Sensor nodes: each may publish ONLY its own reading + health. One stanza per node. -----------
+# (For many sensors, prefer a pattern keyed on the username so a node can only write its own topic:
+#     pattern write bsw/sensor/%u
+#     pattern write bsw/health/%u
+#  — then name each node's MQTT user exactly as its sensor_id.)
+user sensor_right_mid
+topic write bsw/sensor/right_mid
+topic write bsw/health/right_mid
+
+user sensor_left_mid
+topic write bsw/sensor/left_mid
+topic write bsw/health/left_mid
+
+# … one per sensor in config/sensors.example.json (front_center, front_left, front_right,
+#   right_mid, left_mid, rear_left, rear_right, rear_center, and the phase-2 cam_right).
