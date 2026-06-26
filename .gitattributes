@@ -1,0 +1,12 @@
+# Normalize line endings to LF in the repository.
+# Devs are on Windows/macOS, but the Raspberry Pi target is Linux and configs/
+# shell scripts (mosquitto.conf, systemd units, *.sh) must stay LF.
+* text=auto eol=lf
+
+# Explicit binaries — never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.pdf binary
+*.docx binary
