@@ -20,11 +20,19 @@ export class Scene {
   readonly canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private cfg: SceneConfig;
+  /** truck bounding box in normalized coords — used to keep the thin FRONT/REAR labels off the cab. */
+  private truckBounds: { top: number; bottom: number; left: number; right: number };
 
   constructor(canvas: HTMLCanvasElement, cfg: SceneConfig) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     this.cfg = cfg;
+    const xs = cfg.truckOutline.map((p) => p[0]);
+    const ys = cfg.truckOutline.map((p) => p[1]);
+    this.truckBounds = {
+      top: Math.min(...ys), bottom: Math.max(...ys),
+      left: Math.min(...xs), right: Math.max(...xs),
+    };
   }
 
   /** Size the backing store to the container (DPR-aware) and return the CSS size. */
@@ -66,6 +74,14 @@ export class Scene {
 
     this.drawTruck(S);
     this.drawOrientation(S);
+
+    // zone labels AFTER the truck: the FRONT/REAR strips hug the cab, so a label drawn with the
+    // zone fill (under the truck) gets painted over. Drawn here, every zone name stays legible.
+    for (const z of this.cfg.zones) {
+      const enabled = (p.localEnabled.get(z.id) ?? true) && z.enabled;
+      if (!enabled) continue;
+      this.drawZoneLabel(z, S);
+    }
 
     // icons on top so they're never occluded by neighbouring fills
     for (const z of this.cfg.zones) {
@@ -115,10 +131,31 @@ export class Scene {
     ctx.stroke();
     ctx.restore();
     ctx.setLineDash([]);
+  }
 
-    // small zone label
+  /**
+   * Place a zone's name legibly. Tall side zones: lifted above the centroid (clears the object
+   * blob), clamped into the zone's band. The thin FRONT/REAR strips above/below the cab have no
+   * headroom for that lift (it lands on the cab or off-canvas), so tuck their label against the
+   * cab edge instead. Called after drawTruck so nothing occludes it.
+   */
+  private drawZoneLabel(z: ZoneCfg, S: number): void {
     const [cx, cy] = z.centroid;
-    this.text(zoneName(z.id), cx * S, cy * S - S * 0.045, S * 0.020, THEME.textDim);
+    const ys = z.polygon_norm.map((p) => p[1]);
+    const zmin = Math.min(...ys);
+    const zmax = Math.max(...ys);
+    const pad = 0.02;
+    const tb = this.truckBounds;
+    const overCab = cx > tb.left && cx < tb.right;
+    let y: number;
+    if (overCab && zmax <= tb.top + 1e-6) {
+      y = zmax - pad;          // FRONT strip → just above the cab
+    } else if (overCab && zmin >= tb.bottom - 1e-6) {
+      y = zmin + pad;          // REAR strip → just below the cab
+    } else {
+      y = Math.min(Math.max(cy - 0.045, zmin + pad), zmax - pad);
+    }
+    this.text(zoneName(z.id), cx * S, y * S, S * 0.020, THEME.textDim);
   }
 
   private drawDisabledZone(z: ZoneCfg, S: number): void {
@@ -176,10 +213,13 @@ export class Scene {
     // redundant glyph (no-color channel)
     this.text(style.glyph, x, y + r * 0.05, r * 1.05, style.stroke);
 
-    // range readout (06 §6.2): nearest distance beside the icon
+    // range readout (06 §6.2): nearest distance beside the icon. Default below the blob; flip
+    // above it when that would clip the bottom edge (the REAR strip sits at the canvas floor).
     const rng = st.nearest_range_m;
     if (rng != null) {
-      this.text(`${rng.toFixed(1)} m`, x, y + r + S * 0.028, S * 0.024, THEME.text);
+      let ry = y + r + S * 0.028;
+      if (ry > S * 0.95) ry = y - r - S * 0.022;
+      this.text(`${rng.toFixed(1)} m`, x, ry, S * 0.024, THEME.text);
     }
   }
 
