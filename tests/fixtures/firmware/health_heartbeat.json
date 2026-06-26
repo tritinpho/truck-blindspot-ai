@@ -1,0 +1,8 @@
+{
+  "schema": "bsw.health/1",
+  "component": "esp32_right",
+  "ts": 143000,
+  "ts_kind": "monotonic_ms",
+  "status": "ok",
+  "detail": "rssi=-58dBm, 4 sensors active, 0 read-fail"
+}
