@@ -75,8 +75,9 @@ unchanged.
 - **Re-run at L4:** feed measured bench noise σ and a real nuisance corpus into the same sweep
   (`python tools/threshold_sweep.py`) to confirm or nudge the point; log the sweep so the chosen
   value is auditable (11 §11.6). Per-zone thresholds can be swept live over `bsw/cmd`.
-- **Deferred (cosmetic, §16.7):** day/night theming and the demo-build polish are explicitly
-  cut-first and not needed for the tuning result; they remain a small S6 tail / pre-G4 task.
+- **Cosmetic polish:** the day/night/auto HMI theme is **done** (Settings → Theme; high-contrast
+  daylight + dark night, persisted, auto-by-time-of-day; safety semantics unchanged across themes).
+  Demo-build packaging remains a small deferred S6 tail (cut-first, §16.7).
 
 ## 19.5 Reproduce
 

@@ -3,16 +3,17 @@
 // overlay, and the two secondary views: Settings/Calibration (FR-12) and hidden Diagnostics (NFR-11).
 // The Canvas scene is rendered separately (scene.ts); this module is everything around it.
 
-import type { Health, Lang, ObjectClass, Severity, SystemPhase, ViewName } from "./types";
+import type { Health, Lang, ObjectClass, Severity, SystemPhase, ThemeMode, ViewName } from "./types";
 import type { SceneConfig } from "./config";
 import type { AppState } from "./store";
-import { SEVERITY, THEME } from "./theme";
+import { SEVERITY, THEME, getThemeMode } from "./theme";
 import { className, t, zoneName } from "./i18n";
 
 export interface UICallbacks {
   toggleMute(): void;
   setVolume(v: number): void;
   setLang(l: Lang): void;
+  setTheme(m: ThemeMode): void;
   setView(v: ViewName): void;
   setThreshold(zoneId: string, caution_m: number, danger_m: number): void;
   setZoneEnabled(zoneId: string, enabled: boolean): void;
@@ -80,6 +81,9 @@ export class UI {
     el("diagBack").textContent = `‹ ${t("back")}`;
     el("volLabel").textContent = t("volume");
     el("langLabel").textContent = t("language");
+    el("themeLabel").textContent = t("theme");
+    el<HTMLSelectElement>("theme").querySelectorAll("option").forEach(
+      (o) => { o.textContent = t(`theme_${o.value}`); });
     el("thresholdsLabel").textContent = t("thresholds");
     this.soundHint.textContent = `🔇 ${t("sound_hint")}`;
     // diagnostics header
@@ -125,6 +129,11 @@ export class UI {
     el<HTMLSelectElement>("lang").addEventListener("change", (e) => {
       this.cb.setLang((e.target as HTMLSelectElement).value as Lang);
     });
+
+    // theme: night / day / auto (S6 polish). Reflects the persisted choice on open.
+    const theme = el<HTMLSelectElement>("theme");
+    theme.value = getThemeMode();
+    theme.addEventListener("change", () => this.cb.setTheme(theme.value as ThemeMode));
   }
 
   // --- settings panel: per-zone threshold sliders + enable toggle ---

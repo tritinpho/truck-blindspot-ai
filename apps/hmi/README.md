@@ -8,9 +8,11 @@ over MQTT-WebSocket and is **driven only by the broker**. Spec:
 [ADR-0009](../../docs/adr/ADR-0009-hmi-framework-vanilla-ts.md) (vanilla TS, no React — the scene
 is an imperative ≥10 Hz Canvas loop; a framework would serve only the cut-first settings views).
 
-**Status:** S3 — full HMI. All 8 zones + icons + primary-alert banner + range readouts, Web Audio
-alerts, the liveness clock (warming-up / SIGNAL-LOST / alive pip), and the Settings + Diagnostics
-views. Phase-1 renders a **generic blob** for every object (class-specific icons are phase-2/camera).
+**Status:** S3 + S6 polish — full HMI. All 8 zones + icons + primary-alert banner + range readouts,
+Web Audio alerts, the liveness clock (warming-up / SIGNAL-LOST / alive pip), the Settings +
+Diagnostics views, and a **day / night / auto theme** (Settings → Theme; high-contrast for daylight,
+dark for night; auto switches by time of day, persisted in localStorage). Phase-1 renders a
+**generic blob** for every object (class-specific icons are phase-2/camera).
 
 ## Run
 
@@ -73,7 +75,8 @@ src/
   audio.ts      Web Audio engine — CAUTION/DANGER beeps + rate-limited fault chime
   scene.ts      Canvas renderer — zones, blobs, range, truck, hatch/pulse (color-blind safe)
   ui.ts         DOM chrome + view router (status bar, banner, overlay, settings, diagnostics)
-  theme.ts      severity palette + non-color redundant encodings (06 §6.2)
+  theme.ts      severity palette + non-color redundant encodings (06 §6.2); day/night palettes
+                swapped live (applyTheme), color-blind-safe channels unchanged across themes
   i18n.ts       VI/EN strings (default Vietnamese)
   types.ts      wire + app types
 ```

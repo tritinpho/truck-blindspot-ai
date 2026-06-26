@@ -49,6 +49,8 @@ export type SystemPhase = "WARMING_UP" | "MONITORING" | "SIGNAL_LOST";
 
 export type Lang = "vi" | "en";
 export type ViewName = "drive" | "settings" | "diagnostics";
+/** Display theme: night (dark cabin), day (high-contrast for daylight), auto (by time of day). */
+export type ThemeMode = "night" | "day" | "auto";
 
 /** A live zone record: the wire state plus its LOCAL receipt time (ADR-0008). */
 export interface ZoneRecord {

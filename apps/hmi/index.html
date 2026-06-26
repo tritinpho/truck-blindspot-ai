@@ -9,6 +9,16 @@
         --bg: #0b0e13; --panel: #0e131b; --line: rgba(120,128,140,0.25);
         --text: #cdd6e0; --dim: #8a94a4;
       }
+      /* Day theme (S6 polish): high-contrast for daylight. Toggled via data-theme on <html>;
+         the canvas chrome swaps in theme.ts. Severity hues + redundant channels are unchanged. */
+      :root[data-theme="day"] {
+        --bg: #e9edf2; --panel: #dde3ea; --line: rgba(70,80,94,0.28);
+        --text: #1c2530; --dim: #566273;
+      }
+      :root[data-theme="day"] #overlay { background: rgba(225,230,236,0.92); }
+      :root[data-theme="day"] #warmingTitle { color: #b4790a; }
+      :root[data-theme="day"] #overlay .spin { border-color: rgba(180,121,10,0.25); border-top-color: #b4790a; }
+      :root[data-theme="day"] #statusbar button:active { background: rgba(0,0,0,0.06); }
       * { box-sizing: border-box; }
       html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
         font-family: system-ui, sans-serif; overflow: hidden; -webkit-user-select: none; user-select: none; }
@@ -85,6 +95,18 @@
 
       .hidden { display: none !important; }
     </style>
+    <script>
+      // Set the theme before first paint (no flash). Mirrors resolveTheme() in src/theme.ts;
+      // theme.ts re-applies on load and owns the canvas chrome.
+      (function () {
+        try {
+          var m = localStorage.getItem("bsw.theme") || "auto";
+          var h = new Date().getHours();
+          var r = m === "day" || m === "night" ? m : (h >= 6 && h < 18 ? "day" : "night");
+          document.documentElement.dataset.theme = r;
+        } catch (e) { document.documentElement.dataset.theme = "night"; }
+      })();
+    </script>
   </head>
   <body>
     <div id="app">
@@ -124,6 +146,12 @@
             <select id="lang">
               <option value="vi">Tiếng Việt</option>
               <option value="en">English</option>
+            </select></label>
+          <label><span id="themeLabel">Theme</span>
+            <select id="theme">
+              <option value="auto">Auto</option>
+              <option value="day">Day</option>
+              <option value="night">Night</option>
             </select></label>
         </div>
       </section>

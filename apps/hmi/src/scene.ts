@@ -140,7 +140,7 @@ export class Scene {
     ctx.save();
     this.trace(points, S);
     ctx.clip();
-    ctx.strokeStyle = "rgba(200,206,216,0.30)";
+    ctx.strokeStyle = THEME.hatch;
     ctx.lineWidth = 1;
     const step = S * 0.022;
     ctx.beginPath();
@@ -167,7 +167,7 @@ export class Scene {
 
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(14,19,27,0.92)";
+    ctx.fillStyle = THEME.blobFill;
     ctx.fill();
     ctx.lineWidth = ringW;
     ctx.strokeStyle = style.stroke;

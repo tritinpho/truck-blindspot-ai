@@ -15,12 +15,14 @@ import { AudioEngine } from "./audio";
 import { Bus } from "./bus";
 import { UI, type BannerVM, type UICallbacks } from "./ui";
 import { setLang } from "./i18n";
+import { applyTheme, initTheme } from "./theme";
 import type { Severity } from "./types";
 
 const BROKER = import.meta.env.VITE_BROKER_WS ?? "ws://localhost:9001";
 const MUTE_MS = 60_000; // timed mute (never hides visuals)
 
 const cfg = loadSceneConfig();
+initTheme(); // apply persisted/auto day-night theme before the first render (ADR-0009 vanilla TS)
 const state = createState(cfg.zones.map((z) => z.id));
 const zonePriorities = cfg.zones.map((z) => ({ id: z.id, risk_weight: z.risk_weight }));
 
@@ -34,6 +36,7 @@ const callbacks: UICallbacks = {
   },
   setVolume(v) { state.audio.volume = v; audio.setVolume(v); },
   setLang(l) { setLang(l); state.lang = l; ui.relocalize(); },
+  setTheme(m) { applyTheme(m); },
   setView(v) {
     state.view = v;
     ui.showView(v);
