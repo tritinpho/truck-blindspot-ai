@@ -1,0 +1,11 @@
+{
+  "schema": "bsw.sensor_reading/1",
+  "sensor_id": "right_mid",
+  "ts": 1719400000123,
+  "ts_kind": "epoch_ms",
+  "modality": "ultrasonic",
+  "present": true,
+  "range_m": 0.82,
+  "confidence": 0.9,
+  "health": "ok"
+}

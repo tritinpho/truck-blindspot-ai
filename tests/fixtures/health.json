@@ -1,0 +1,8 @@
+{
+  "schema": "bsw.health/1",
+  "component": "fusion",
+  "ts": 1719400000000,
+  "ts_kind": "epoch_ms",
+  "status": "ok",
+  "detail": "8 sensors active, 0 stale"
+}

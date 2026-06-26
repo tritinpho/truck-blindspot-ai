@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://truck-blindspot-ai/schemas/cmd.schema.json",
+  "title": "bsw.cmd/1",
+  "description": "Config & calibration command on bsw/cmd/{target} (QoS 1). Sent by the HMI/operator to a component.",
+  "type": "object",
+  "required": ["schema", "ts", "op"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": { "const": "bsw.cmd/1" },
+    "ts": { "type": "integer", "minimum": 0, "description": "milliseconds; see ts_kind" },
+    "ts_kind": { "enum": ["epoch_ms", "monotonic_ms"], "default": "epoch_ms" },
+    "op": { "enum": ["set_threshold", "enable_zone", "disable_zone", "set_volume", "reload_config", "mute"] },
+    "args": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "operation-specific payload, e.g. { \"zone_id\": \"RIGHT\", \"danger_m\": 0.8, \"caution_m\": 1.5 }"
+    }
+  }
+}

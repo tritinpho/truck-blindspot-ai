@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Node / web
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Data / logs (black-box event logs, FR-10)
+*.db
+*.sqlite
+*.sqlite3
+*.jsonl
+logs/
+
+# Env / editor / OS
+.env
+.env.*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

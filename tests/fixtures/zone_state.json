@@ -1,0 +1,11 @@
+{
+  "schema": "bsw.zone_state/1",
+  "zone_id": "RIGHT",
+  "ts": 1719400000170,
+  "severity": "DANGER",
+  "object_class": "motorbike",
+  "nearest_range_m": 0.82,
+  "source": "fusion",
+  "reason": "range<0.9 & turn_signal=right",
+  "stale": false
+}

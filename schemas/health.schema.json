@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://truck-blindspot-ai/schemas/health.schema.json",
+  "title": "bsw.health/1",
+  "description": "Heartbeat / fault status published by any component on bsw/health/{component} (~1 Hz). A missing heartbeat surfaces as a fault; the HMI liveness clock uses bsw/health/fusion (see ADR-0006).",
+  "type": "object",
+  "required": ["schema", "component", "ts", "status"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": { "const": "bsw.health/1" },
+    "component": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "ts": { "type": "integer", "minimum": 0, "description": "milliseconds; see ts_kind" },
+    "ts_kind": { "enum": ["epoch_ms", "monotonic_ms"], "default": "epoch_ms" },
+    "status": { "enum": ["ok", "degraded", "fault"] },
+    "detail": { "type": "string", "description": "human-readable, e.g. '12 sensors active, 0 stale'" }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://truck-blindspot-ai/schemas/detection.schema.json",
+  "title": "bsw.detection/1",
+  "description": "Classified object from a camera node (phase 2) on bsw/detection/{sensor_id}. Like raw sensors, a camera does NOT declare its zone; the fusion engine resolves sensor_id -> zone via config/sensors.json (FR-02/03). Lets VRUs be weighted more dangerous and drives the HMI icon.",
+  "type": "object",
+  "required": ["schema", "sensor_id", "ts", "object_class", "confidence"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": { "const": "bsw.detection/1" },
+    "sensor_id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "ts": { "type": "integer", "minimum": 0 },
+    "ts_kind": { "enum": ["epoch_ms", "monotonic_ms"], "default": "epoch_ms" },
+    "object_class": { "enum": ["pedestrian", "cyclist", "motorbike", "vehicle", "unknown"] },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "bbox": { "type": "array", "items": { "type": "number", "minimum": 0, "maximum": 1 }, "minItems": 4, "maxItems": 4, "description": "[x1,y1,x2,y2] normalized" },
+    "est_range_m": { "type": ["number", "null"], "minimum": 0 },
+    "ttc_s": { "type": ["number", "null"], "minimum": 0, "description": "optional time-to-collision estimate" }
+  }
+}

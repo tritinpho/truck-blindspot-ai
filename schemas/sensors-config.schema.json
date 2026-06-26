@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://truck-blindspot-ai/schemas/sensors-config.schema.json",
+  "title": "bsw.sensors_config/1",
+  "description": "config/sensors.json — the single source of truth for which zone each sensor feeds (FR-02/FR-03). The fusion engine builds the reverse zone->sensors index from this file at load. STRICT: additionalProperties:false (except $comment) on the top level and each sensor entry, so a misspelled key fails loud at load instead of silently defaulting (NFR-07).",
+  "type": "object",
+  "required": ["schema", "sensors"],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": { "type": "string" },
+    "schema": { "const": "bsw.sensors_config/1" },
+    "stale_after_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "a sensor with no fresh reading newer than this is treated as stale -> its zone goes UNKNOWN (NFR-04). Set >= 3x the slowest sample period (~600 ms for 5 Hz ultrasonic under group-fire) to avoid jitter-induced UNKNOWN flicker; see 05 §5.3."
+    },
+    "sensors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "zone", "modality"],
+        "additionalProperties": false,
+        "properties": {
+          "$comment": { "type": "string" },
+          "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+          "zone": { "enum": ["FRONT", "FRONT_LEFT", "FRONT_RIGHT", "LEFT", "RIGHT", "REAR_LEFT", "REAR_RIGHT", "REAR"] },
+          "modality": { "enum": ["ultrasonic", "radar", "ir", "camera", "other"] },
+          "fov_deg": { "type": "number", "minimum": 0, "maximum": 360 },
+          "max_range_m": { "type": "number", "minimum": 0 },
+          "mount": { "type": "string" },
+          "fire_group": { "type": "integer", "minimum": 0, "description": "ultrasonic cross-talk grouping; sensors in the same group must not share an acoustic field (ADR-0007)" },
+          "enabled": { "type": "boolean", "default": true }
+        }
+      }
+    }
+  }
+}

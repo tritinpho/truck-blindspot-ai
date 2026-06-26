@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://truck-blindspot-ai/schemas/vehicle-context.schema.json",
+  "title": "bsw.vehicle/1",
+  "description": "Vehicle signals for context-aware alerting, on bsw/vehicle. All fields optional; absence degrades to 'monitor all zones'.",
+  "type": "object",
+  "required": ["schema", "ts"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": { "const": "bsw.vehicle/1" },
+    "ts": { "type": "integer", "minimum": 0 },
+    "ts_kind": { "enum": ["epoch_ms", "monotonic_ms"], "default": "epoch_ms" },
+    "speed_kph": { "type": ["number", "null"], "minimum": 0 },
+    "gear": { "enum": ["park", "reverse", "neutral", "drive", "unknown"], "description": "authoritative drivetrain state; 'reversing' is gear=='reverse' — there is no separate reverse flag (single source of truth)" },
+    "turn_signal": { "enum": ["none", "left", "right", "hazard"] }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "$comment": "Zone map for a rigid box truck. Geometry is normalized top-view (0..1, origin top-left, truck nose at top). Swap this file to support a tractor-trailer or bus without code changes (FR-03). risk_weight biases audio/priority; RIGHT and FRONT_RIGHT are highest for Vietnam right-hand traffic.",
+  "schema": "bsw.zones_config/1",
+  "vehicle_profile": "rigid_box_truck",
+  "truck_outline_norm": [[0.40, 0.08], [0.60, 0.08], [0.60, 0.92], [0.40, 0.92]],
+  "defaults": { "caution_m": 1.5, "danger_m": 0.8, "release_margin_m": 0.2, "confirm": 2, "release": 4, "immediate_danger_factor": 0.6 },
+  "zones": [
+    { "id": "FRONT",       "enabled": true, "risk_weight": 1.2, "caution_m": 1.5, "danger_m": 0.8, "polygon_norm": [[0.40,0.00],[0.60,0.00],[0.60,0.08],[0.40,0.08]] },
+    { "id": "FRONT_LEFT",  "enabled": true, "risk_weight": 1.0, "caution_m": 1.5, "danger_m": 0.8, "polygon_norm": [[0.25,0.00],[0.40,0.00],[0.40,0.30],[0.25,0.30]] },
+    { "id": "FRONT_RIGHT", "enabled": true, "risk_weight": 1.6, "caution_m": 1.8, "danger_m": 1.0, "polygon_norm": [[0.60,0.00],[0.75,0.00],[0.75,0.30],[0.60,0.30]] },
+    { "id": "LEFT",        "enabled": true, "risk_weight": 1.1, "caution_m": 1.5, "danger_m": 0.8, "polygon_norm": [[0.25,0.30],[0.40,0.30],[0.40,0.70],[0.25,0.70]] },
+    { "id": "RIGHT",       "enabled": true, "risk_weight": 1.8, "caution_m": 1.8, "danger_m": 1.0, "polygon_norm": [[0.60,0.30],[0.75,0.30],[0.75,0.70],[0.60,0.70]] },
+    { "id": "REAR_LEFT",   "enabled": true, "risk_weight": 1.0, "caution_m": 1.5, "danger_m": 0.8, "polygon_norm": [[0.25,0.70],[0.40,0.70],[0.40,1.00],[0.25,1.00]] },
+    { "id": "REAR_RIGHT",  "enabled": true, "risk_weight": 1.1, "caution_m": 1.5, "danger_m": 0.8, "polygon_norm": [[0.60,0.70],[0.75,0.70],[0.75,1.00],[0.60,1.00]] },
+    { "id": "REAR",        "enabled": true, "risk_weight": 1.3, "caution_m": 1.5, "danger_m": 0.8, "polygon_norm": [[0.40,0.92],[0.60,0.92],[0.60,1.00],[0.40,1.00]] }
+  ],
+  "vru_threshold_multiplier": 1.25,
+  "context": {
+    "turn_signal_boost": { "factor_caution_m": 1.3, "factor_danger_m": 1.3 },
+    "reverse_boost_zones": ["REAR", "REAR_LEFT", "REAR_RIGHT"],
+    "speed_bands_kph": { "low_max": 30, "high_min": 50 },
+    "park_standby_mute_audio": true
+  },
+  "alerting": { "stale_confirm": 2, "fault_chime_min_interval_ms": 10000 }
+}

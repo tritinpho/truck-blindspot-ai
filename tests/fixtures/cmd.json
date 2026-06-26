@@ -1,0 +1,7 @@
+{
+  "schema": "bsw.cmd/1",
+  "ts": 1719400000000,
+  "ts_kind": "epoch_ms",
+  "op": "set_threshold",
+  "args": { "zone_id": "RIGHT", "danger_m": 0.8, "caution_m": 1.5 }
+}

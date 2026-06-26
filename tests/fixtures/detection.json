@@ -1,0 +1,11 @@
+{
+  "schema": "bsw.detection/1",
+  "sensor_id": "cam_right",
+  "ts": 1719400000150,
+  "ts_kind": "epoch_ms",
+  "object_class": "motorbike",
+  "confidence": 0.78,
+  "bbox": [0.41, 0.55, 0.62, 0.90],
+  "est_range_m": 1.2,
+  "ttc_s": 2.4
+}

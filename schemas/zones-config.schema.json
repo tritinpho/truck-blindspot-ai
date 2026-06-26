@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://truck-blindspot-ai/schemas/zones-config.schema.json",
+  "title": "bsw.zones_config/1",
+  "description": "config/zones.json — zone map, thresholds, and warning tunables. Swappable per vehicle profile (rigid truck / tractor-trailer / bus) without code changes (FR-03). STRICT: additionalProperties:false (except $comment) on the top level and each zone entry, so a misspelled key (e.g. 'dangr_m') fails loud at load (NFR-07); 'defaults', 'context', and 'alerting' stay open bags for free-form tuning.",
+  "type": "object",
+  "required": ["schema", "zones"],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": { "type": "string" },
+    "schema": { "const": "bsw.zones_config/1" },
+    "vehicle_profile": { "type": "string" },
+    "truck_outline_norm": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+      "description": "normalized top-view polygon (0..1, origin top-left)"
+    },
+    "defaults": { "type": "object", "additionalProperties": true, "description": "default per-zone tunables (caution_m, danger_m, release_margin_m, confirm, release, immediate_danger_factor)" },
+    "zones": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "enabled"],
+        "additionalProperties": false,
+        "properties": {
+          "$comment": { "type": "string" },
+          "id": { "enum": ["FRONT", "FRONT_LEFT", "FRONT_RIGHT", "LEFT", "RIGHT", "REAR_LEFT", "REAR_RIGHT", "REAR"] },
+          "enabled": { "type": "boolean" },
+          "risk_weight": { "type": "number", "minimum": 0 },
+          "caution_m": { "type": "number", "minimum": 0 },
+          "danger_m": { "type": "number", "minimum": 0 },
+          "polygon_norm": {
+            "type": "array",
+            "minItems": 3,
+            "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } }
+          }
+        }
+      }
+    },
+    "vru_threshold_multiplier": { "type": "number", "minimum": 1 },
+    "context": { "type": "object", "additionalProperties": true },
+    "alerting": { "type": "object", "additionalProperties": true, "description": "anti-flicker / anti-fatigue tunables: stale_confirm, fault_chime_min_interval_ms (05 §5.3/§5.5)" }
+  }
+}

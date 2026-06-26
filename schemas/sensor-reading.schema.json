@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://truck-blindspot-ai/schemas/sensor-reading.schema.json",
+  "title": "bsw.sensor_reading/1",
+  "description": "Raw range/presence reading published by a sensor node OR the simulator on bsw/sensor/{sensor_id}.",
+  "type": "object",
+  "required": ["schema", "sensor_id", "ts", "present", "health"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": { "const": "bsw.sensor_reading/1" },
+    "sensor_id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "ts": { "type": "integer", "minimum": 0, "description": "milliseconds; see ts_kind" },
+    "ts_kind": { "enum": ["epoch_ms", "monotonic_ms"], "default": "epoch_ms" },
+    "modality": { "enum": ["ultrasonic", "radar", "ir", "camera", "other"] },
+    "present": { "type": "boolean" },
+    "range_m": { "type": ["number", "null"], "minimum": 0, "description": "nearest object distance; null when present=false" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "health": { "enum": ["ok", "degraded", "fault"] }
+  }
+}

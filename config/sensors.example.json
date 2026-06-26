@@ -1,0 +1,18 @@
+{
+  "$comment": "Sensor-to-zone mapping. This file IS the proposal's 'modular sensor placement' novelty made concrete (FR-02/FR-03) and the single source of truth for sensor->zone (the engine builds the reverse index). Add/remove/move sensors and remap zones here with no code change. Each sensor publishes bsw/sensor/{id}; the fusion engine routes it to 'zone'. Ultrasonic sensors carry fire_group (ADR-0007) to avoid acoustic cross-talk: group 0 = the four center/mid sensors, group 1 = the four corner sensors; the two groups fire alternately so adjacent cones never ping together, giving ~master/2 (~5 Hz) per sensor.",
+  "schema": "bsw.sensors_config/1",
+  "stale_after_ms": 700,
+  "sensors": [
+    { "id": "front_center", "zone": "FRONT",       "modality": "ultrasonic", "fov_deg": 30, "max_range_m": 4.0, "fire_group": 0, "mount": "front bumper center" },
+    { "id": "front_left",   "zone": "FRONT_LEFT",  "modality": "ultrasonic", "fov_deg": 30, "max_range_m": 4.0, "fire_group": 1, "mount": "front-left corner" },
+    { "id": "front_right",  "zone": "FRONT_RIGHT", "modality": "ultrasonic", "fov_deg": 30, "max_range_m": 4.0, "fire_group": 1, "mount": "front-right corner" },
+    { "id": "left_mid",     "zone": "LEFT",        "modality": "ultrasonic", "fov_deg": 40, "max_range_m": 4.0, "fire_group": 0, "mount": "left side mid" },
+    { "id": "right_mid",    "zone": "RIGHT",       "modality": "ultrasonic", "fov_deg": 40, "max_range_m": 4.0, "fire_group": 0, "mount": "right side mid (highest risk)" },
+    { "id": "rear_left",    "zone": "REAR_LEFT",   "modality": "ultrasonic", "fov_deg": 30, "max_range_m": 4.0, "fire_group": 1, "mount": "rear-left corner" },
+    { "id": "rear_right",   "zone": "REAR_RIGHT",  "modality": "ultrasonic", "fov_deg": 30, "max_range_m": 4.0, "fire_group": 1, "mount": "rear-right corner" },
+    { "id": "rear_center",  "zone": "REAR",        "modality": "ultrasonic", "fov_deg": 30, "max_range_m": 4.0, "fire_group": 0, "mount": "rear bumper center" },
+
+    { "$comment": "Phase-2 camera classifier on the deadliest zone. Publishes bsw/detection/cam_right with object_class; the fusion engine maps cam_right -> RIGHT via this file, exactly like any other sensor (no zone baked into firmware).",
+      "id": "cam_right", "zone": "RIGHT", "modality": "camera", "fov_deg": 90, "max_range_m": 8.0, "mount": "right A-pillar / mirror", "enabled": false }
+  ]
+}

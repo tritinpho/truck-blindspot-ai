@@ -1,0 +1,32 @@
+Copyright (c) 2026 Trường Đại học Quản lý và Công nghệ Thành phố Hồ Chí Minh
+(Ho Chi Minh City University of Management and Technology) and the project authors
+(Nguyễn Cảnh Tuấn; ThS. Phó Trí Tín). All rights reserved.
+
+PROPRIETARY — ALL RIGHTS RESERVED (pending licensing decision)
+
+This software and its documentation (the "Work") are the intellectual property of the
+copyright holders. The Work is the subject of an active research and development task that
+may lead to a registered utility solution or patent ("đăng ký giải pháp hữu ích/sáng chế")
+and/or commercialization. For that reason it is, by default, NOT released under an
+open-source license.
+
+Until a different license is chosen and applied by the copyright holders:
+  - No permission is granted to use, copy, modify, distribute, sublicense, or sell the Work,
+    in whole or in part, without prior written permission from the copyright holders.
+  - Internal use by the project team, the university, and its designated collaborators for
+    research, teaching, and evaluation purposes is permitted.
+
+WHY THIS LICENSE (note, not legally operative)
+A permissive open-source license (e.g. MIT) would place the code in the public domain of
+use and could weaken a future utility-solution/patent claim. The Apache-2.0 license includes
+an explicit patent grant, which is likewise undesirable while patentability is being assessed.
+"All rights reserved" keeps options open. The copyright holders MAY later relicense the Work
+(for example under MIT or Apache-2.0 for the software, while protecting the novel mechanism
+separately) once the IP strategy is decided — see docs/10-improvements.md and docs/09-roadmap.md.
+
+THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. THE
+COPYRIGHT HOLDERS ARE NOT LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM
+THE WORK. NOTE: this system is a DRIVER-ASSISTANCE / ADVISORY aid only; it does not control
+the vehicle and does not replace the driver's responsibility.
+
+To request permission or discuss licensing, contact the project authors.
