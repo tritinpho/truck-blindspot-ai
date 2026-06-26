@@ -1,9 +1,13 @@
-"""Fusion engine — transport & loop.
+"""Fusion engine — MQTT transport & real-time loop.
 
-Subscribes to bsw/sensor/#, bsw/detection/#, and bsw/vehicle; feeds them to the stateful
-FusionEngine; on a fixed tick publishes retained bsw/zone/{zone_id} and logs severity
-transitions (FR-10). Emits a ~1 Hz bsw/health/fusion heartbeat (ADR-0006 #2) with an MQTT
-Last-Will (04 §4.3.5). Staleness uses a local monotonic clock (ADR-0008).
+Thin paho wrapper around `FusionService` (service.py), which holds all the broker-agnostic
+routing/tick logic. This module only owns the things that need a real broker and a wall clock:
+the client, the subscribe set, the LWT, the ~1 Hz heartbeat, and the fixed-cadence publish loop.
+
+Subscribes bsw/sensor/#, bsw/detection/#, bsw/vehicle, and bsw/cmd/# (live retune — set_threshold
+/ enable_zone / disable_zone / reload_config, 04 §4.3.6). On each tick publishes retained
+bsw/zone/{zone_id} and logs severity transitions (FR-10). Emits a bsw/health/fusion heartbeat with
+an MQTT Last-Will (04 §4.3.5, ADR-0006 #2). Staleness uses a local monotonic clock (ADR-0008).
 
 Run (from services/fusion-engine, with the broker up):
     python -m fusion
@@ -12,14 +16,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import threading
 import time
 from pathlib import Path
 
 import paho.mqtt.client as mqtt
 
-from .engine import FusionEngine, load_config
+from .engine import load_config
 from .eventlog import EventLog
+from .service import SUB_TOPICS, FusionService
 
 REPO = Path(__file__).resolve().parents[3]
 DEFAULT_ZONES = REPO / "config" / "zones.example.json"
@@ -59,31 +63,20 @@ def main() -> None:
     args = ap.parse_args()
 
     cfg = load_config(args.zones, args.sensors)
-    engine = FusionEngine(cfg)
     log = EventLog(args.log_dir)
+    svc = FusionService(cfg, log=log, zones_path=args.zones, sensors_path=args.sensors)
     print(f"[fusion] {len(cfg.zone_ids)} zones, {len(cfg.sensor_to_zone)} sensors; logging -> {args.log_dir}")
-
-    vehicle: dict | None = None
-    last_sev: dict[str, str] = {}
-    lock = threading.Lock()
 
     def on_connect(client, userdata, flags, reason_code, properties=None):
         print(f"[fusion] connected ({reason_code})")
-        client.subscribe([("bsw/sensor/#", 0), ("bsw/detection/#", 0), ("bsw/vehicle", 0)])
+        client.subscribe(SUB_TOPICS)
         client.publish("bsw/health/fusion", health("ok", "fusion up"), qos=0)
 
     def on_message(client, userdata, msg):
-        nonlocal vehicle
-        try:
-            data = json.loads(msg.payload)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            return
-        topic = msg.topic
-        with lock:
-            if topic == "bsw/vehicle":
-                vehicle = data
-            else:  # sensor or detection reading
-                engine.ingest(data, mono_ms())
+        res = svc.handle_message(msg.topic, msg.payload, mono_ms(), now_ms())
+        if res is not None:
+            op, applied, detail = res
+            print(f"[fusion] cmd {op}: {'applied' if applied else 'rejected'} — {detail}")
 
     client = make_client()
     client.on_connect = on_connect
@@ -96,18 +89,11 @@ def main() -> None:
     try:
         while True:
             tick = time.time()
-            with lock:
-                veh = dict(vehicle) if vehicle else None
-                states = engine.tick(mono_ms(), now_ms(), veh)
+            states, _ = svc.collect_tick(mono_ms(), now_ms())
             for st in states:
-                zid, sev = st["zone_id"], st["severity"]
-                if last_sev.get(zid) != sev:
-                    log.transition(st["ts"], zid, last_sev.get(zid, "-"), sev,
-                                   st["nearest_range_m"], st["reason"])
-                    last_sev[zid] = sev
-                client.publish(f"bsw/zone/{zid}", json.dumps(st), qos=0, retain=True)
+                client.publish(f"bsw/zone/{st['zone_id']}", json.dumps(st), qos=0, retain=True)
             if tick - last_hb >= HEARTBEAT_S:
-                client.publish("bsw/health/fusion", health("ok", f"{len(engine.readings)} sensors seen"), qos=0)
+                client.publish("bsw/health/fusion", health("ok", f"{svc.sensors_seen()} sensors seen"), qos=0)
                 last_hb = tick
             time.sleep(max(0.0, 1.0 / TICK_HZ - (time.time() - tick)))
     except KeyboardInterrupt:

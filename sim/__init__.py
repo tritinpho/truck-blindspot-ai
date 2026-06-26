@@ -4,7 +4,8 @@ Emits the same bsw/sensor + bsw/detection messages a real rig publishes (parity,
 replays scripted scenarios S1-S6 through the real fusion engine for the L3 regression suite.
 """
 from .geometry import Obj, Sim
-from .runner import Timeline, build, run
+from .runner import Timeline, build, run, scenario_tick_messages
 from .scenarios import Scenario, Track, by_id, scenarios
 
-__all__ = ["Obj", "Sim", "Timeline", "build", "run", "Scenario", "Track", "by_id", "scenarios"]
+__all__ = ["Obj", "Sim", "Timeline", "build", "run", "scenario_tick_messages",
+           "Scenario", "Track", "by_id", "scenarios"]

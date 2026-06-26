@@ -17,7 +17,7 @@ sim/real parity, most software is built and validated before hardware exists.
 
 - **M1 (end G1):** Contracts + requirements frozen. Any component can be built independently.
 - **M2 (end G2):** Configs + architecture baselined; dev stack runs via Docker Compose.
-- **M3 (end G3):** Full pipeline works in simulation end-to-end (the demo-able core). ⭐
+- **M3 (end G3):** Full pipeline works in simulation end-to-end (the demo-able core). ⭐ **✅ reached** — see [`18-m3-summary.md`](18-m3-summary.md).
 - **M4 (end G4):** Bench model with real sensors driving the same HMI.
 - **M5 (end G5):** Tuned, evaluated, evidence collected.
 - **M6 (end G6):** Final deliverables + follow-on (cấp sở / enterprise) proposal package.

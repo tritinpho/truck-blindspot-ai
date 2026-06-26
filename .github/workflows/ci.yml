@@ -5,8 +5,10 @@ on:
   pull_request:
 
 jobs:
-  # L1 contract + L2 fusion logic + L3 scenario suite (sim/real parity, ADR-0005). All run
-  # without hardware or a broker; L3 replays S1-S6 + faults through the real fusion engine.
+  # L1 contract + L2 fusion logic + L3 scenarios + the broker-free integration shim. All run
+  # WITHOUT hardware or a broker (sim/real parity, ADR-0005), so they are deterministic and fast.
+  # The shim proves the live wiring (publisher → bus → fusion routing → retained bsw/zone) matches
+  # the in-process L3 outcomes; the broker-backed equivalent runs in the `integration` job below.
   tests:
     runs-on: ubuntu-latest
     steps:
@@ -15,6 +17,32 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r tests/requirements.txt
-      - run: pytest -q tests/test_contracts.py                       # L1 — contract tests
-      - run: pytest -q services/fusion-engine/tests                  # L2 — fusion logic
+      - run: pytest -q tests/test_contracts.py                       # L1 — contracts
+      - run: pytest -q services/fusion-engine/tests                  # L2 — fusion logic + bsw/cmd
       - run: pytest -q tests/test_scenarios.py tests/test_tools.py   # L3 — scenarios + eval-tool cores
+      - run: pytest -q tests/test_integration_shim.py               # L3 — live path over a loopback bus
+      - run: pytest -q tests/test_reproducibility.py                # 11 §11.6 — logs replay identically
+
+  # End-to-end over a REAL broker (build-plan S5 #1): bring up broker + fusion from the very
+  # docker-compose.yml we ship, then publish scenarios live and assert on bsw/zone. BSW_REQUIRE_BROKER
+  # turns the test's self-skip into a hard failure, so a broken stack fails the job (not silently skips).
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r tests/requirements.txt paho-mqtt
+      - name: Bring up broker + fusion (the shipped compose stack)
+        run: docker compose -f deploy/docker-compose.yml up -d --build
+      - name: Broker-backed integration test
+        env:
+          BSW_REQUIRE_BROKER: "1"
+        run: pytest -q tests/test_integration_broker.py
+      - name: Stack logs (on failure)
+        if: failure()
+        run: docker compose -f deploy/docker-compose.yml logs --no-color
+      - name: Tear down
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml down -v

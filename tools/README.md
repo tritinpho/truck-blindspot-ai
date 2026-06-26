@@ -7,12 +7,15 @@ Scripts that support development, demos, and the feasibility evaluation (Nội d
 | `publish_sample.py` | S0 | publish one sample `bsw/sensor` reading — broker smoke test |
 | `sim_drive.py` | S1 | one-sensor sweep (RIGHT SAFE→DANGER→SAFE) — the vertical-slice driver |
 | `sim_demo.py` | S3 | scripted multi-zone timeline that demos the whole HMI (zones, icons, banner, escalating audio, context boost, park-standby, sensor dropout → UNKNOWN) |
-| `scenario_runner.py` | S4 | replay scripted scenarios S1–S6 deterministically (L3) or `--live` to the broker; uses [`sim/`](../sim/) ([08 §8.4](../docs/08-simulation.md)) |
+| `scenario_runner.py` | S4/S5 | replay S1–S6 deterministically (L3), `--live` to the broker, or `--latency` for an indicative danger-path figure; uses [`sim/`](../sim/) ([08 §8.4](../docs/08-simulation.md)) |
 | `log_replay.py` | S4 | recompute metrics from recorded `logs/events.jsonl` ([11 §11.6](../docs/11-evaluation-plan.md)) |
 | `latency_observer.py` | S4 | single-observer, single-clock end-to-end latency ([ADR-0008](../docs/adr/ADR-0008-time-and-clock-domains.md) #3) |
 
-All of the above exist (S0→S4). The geometric model + scenarios + deterministic runner they share
-live in [`sim/`](../sim/); the L3 regression suite is [`tests/test_scenarios.py`](../tests/test_scenarios.py).
+All of the above exist (S0→S5). The geometric model + scenarios + deterministic runner + the shared
+per-tick wire stream (`scenario_tick_messages`) they use live in [`sim/`](../sim/); the L3 suite is
+[`tests/test_scenarios.py`](../tests/test_scenarios.py) and the live-path integration shim is
+[`tests/test_integration_shim.py`](../tests/test_integration_shim.py). One-command bring-up + the
+full demo: [`docs/17-demo-and-run.md`](../docs/17-demo-and-run.md).
 
 ```bash
 # Full S3 HMI demo (broker + fusion up): a scripted multi-zone timeline

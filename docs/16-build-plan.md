@@ -46,7 +46,7 @@ sequence, not in parallel. Two consequences shape everything below:
 | **S2** Fusion core | all severity / debounce / context logic | **L2** unit tests green |
 | **S3** HMI build-out | all 8 zones, audio, liveness | full HMI demoable; UNKNOWN / SIGNAL-LOST works |
 | **S4** Sim + scenario runner | geometric sim + S1–S6 replay | **L3** scenario suite runs in CI |
-| **S5** → **M3** | consolidate + first review | ⭐ **M3**: S1–S6 green end-to-end; informal glance review |
+| **S5** → **M3** ✅ | consolidate + first review | ⭐ **M3 reached**: S1–S6 green end-to-end; pipeline demoable; logs reproducible ([`18`](18-m3-summary.md)) |
 | **S6** Tune + demo | tune defaults, demo build, buffer | tuned operating point; demo; ready for G4 |
 
 ### S0 — Foundation
@@ -91,10 +91,27 @@ sequence, not in parallel. Two consequences shape everything below:
   the M3-critical artifact and the lighter build for a solo dev.)*
 - **Exit:** L3 suite runs S1–S6 in CI.
 
-### S5 — Consolidate → M3 ⭐
-- Wire everything end-to-end; close gaps; TC-S1…S6 + TC-F1…F3, F5 green in CI.
+### S5 — Consolidate → M3 ⭐ ✅ (done)
+- [x] Wire everything end-to-end; close gaps; TC-S1…S6 + TC-F1…F3, F5 green in CI.
+- [x] **End-to-end over the broker**, proven two ways: a broker-free in-process **integration
+  shim** (real `FusionService` + real wire stream over a loopback bus → asserts the live path
+  matches the in-process L3 outcomes; deterministic, every-push CI) and a **broker-backed test**
+  (real paho+TCP, runs in the compose CI job / a local `docker compose up`).
+- [x] **One-command bring-up:** `docker compose up` → broker + fusion; `--profile hmi` serves the
+  built HMI. Dockerfiles for both; `config/` + `logs/` mounted. Run book: [`17`](17-demo-and-run.md).
+- [x] **HMI↔fusion command loop:** fusion honors `bsw/cmd` (`set_threshold` / `enable_zone` /
+  `disable_zone` / `reload_config`); L2 tested. (The S6 tuning lever.)
+- [x] **Reproducible logs** (11 §11.6): identical scenario → byte-identical `events.jsonl` +
+  identical replayed metrics (regression-tested).
+- [x] **Indicative latency:** `latency_observer` (live) + `scenario_runner --latency` (sim);
+  headline stays L4 bench.
+- **CI approach (decided):** two jobs — `tests` (L1/L2/L3 + integration shim + reproducibility; no
+  broker, deterministic) and `integration` (brings up the shipped compose stack and runs the
+  broker-backed test with `BSW_REQUIRE_BROKER=1` so a broken stack fails the job). The shim gives
+  live-path coverage without infra; the compose job validates the actual deliverable.
 - **R:** first informal glance review of the HMI; validate scenario expected-outcomes.
-- **Exit:** **M3** — full pipeline runs all scenarios in sim, demoable; logs replay reproducibly.
+- **Exit:** **M3 reached** — full pipeline runs all scenarios in sim, demoable (incl. boot
+  warming-up + TC-F4 kill→SIGNAL-LOST); logs replay reproducibly. Summary: [`18`](18-m3-summary.md).
 
 ### S6 — Tune + demo + buffer (NFR-09)
 - Threshold sweep via `bsw/cmd/set_threshold`, log-driven → pick the false-alarm / sensitivity

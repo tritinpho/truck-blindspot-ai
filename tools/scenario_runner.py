@@ -29,7 +29,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")  # portable glyphs on the Windows cp1252 console
 
 import sim  # noqa: E402
-from sim.runner import build  # noqa: E402
+from sim.runner import build, scenario_tick_messages  # noqa: E402
 
 TOUCHED_ONLY = True
 
@@ -53,6 +53,58 @@ def run_all(verbose: bool) -> None:
         summarize(sc, verbose)
 
 
+def _danger_latency(tl, zone: str, danger_m: float) -> int | None:
+    """Indicative danger-path latency (ms) from the deterministic timeline: time from an object
+    *crossing into* base danger_m (a genuine entry — a prior tick was outside it) to the zone
+    confirming DANGER. None when not applicable:
+      * the object never crosses danger_m from outside (static-from-start → first-reading recovery
+        adopts DANGER at t=0, which is not an approach latency), or
+      * DANGER fires before the crossing (a context boost warned early — the design intent, not a
+        latency to measure), or the zone never reaches DANGER.
+    So this measures exactly the operational approach case the NFR-01 danger-path budget is about."""
+    ticks = tl.ticks
+    rng = [tk["states"][zone]["nearest_range_m"] for tk in ticks]
+    crossing = None
+    for i in range(1, len(ticks)):
+        outside_before = rng[i - 1] is None or rng[i - 1] > danger_m
+        if outside_before and rng[i] is not None and rng[i] <= danger_m:
+            crossing = ticks[i]["t"]
+            break
+    eff = next((tk["t"] for tk in ticks if tk["states"][zone]["severity"] == "DANGER"), None)
+    if crossing is None or eff is None or eff < crossing:
+        return None
+    return eff - crossing
+
+
+def latency_summary(dt_ms: int) -> None:
+    """Print an INDICATIVE danger-path latency per zone from the deterministic sim, over the
+    operational scenarios (S1-S6). Indicative only: the sim derives detection from zone geometry,
+    so the headline latency must come from L4 bench (11 §11.2, 14 §P2 #6). Use
+    tools/latency_observer.py on a --live run for the real single-observer measurement."""
+    print(f"indicative danger-path latency (sim approach-path, dt={dt_ms}ms; headline is L4 bench):")
+    print(f"  {'scn':4} {'zone':12} {'latency':>9}  note")
+    measured: list[int] = []
+    for sc in sim.scenarios():
+        if not sc.id.startswith("S"):
+            continue  # operational scenarios only; F* are fault/jitter cases, not danger-path
+        tl = sim.run(sc, dt_ms=dt_ms)
+        for zone in sorted({tr.zone for tr in sc.tracks}):
+            lat = _danger_latency(tl, zone, tl.cfg.zones[zone].danger_m)
+            if lat is None:
+                note = "boosted/standby/static — early or no danger-crossing"
+                print(f"  {sc.id:4} {zone:12} {'n/a':>9}  {note}")
+            else:
+                print(f"  {sc.id:4} {zone:12} {f'{lat} ms':>9}  approach → confirmed DANGER")
+                measured.append(lat)
+    if measured:
+        measured.sort()
+        print(f"  --- n={len(measured)}  min={measured[0]}  "
+              f"p50={measured[len(measured)//2]}  max={measured[-1]}  ms "
+              f"(NFR-01 danger-path target <= 200 ms; indicative, not headline)")
+    else:
+        print("  --- no clean approach-path crossing in S1-S6 (boosted/static); use --live observer")
+
+
 def live(sc, host: str, port: int, dt_ms: int, loops: int) -> None:
     import paho.mqtt.client as mqtt
     try:
@@ -68,17 +120,9 @@ def live(sc, host: str, port: int, dt_ms: int, loops: int) -> None:
         for _ in range(loops) if loops > 0 else iter(int, 1):
             for tick in range(n + 1):
                 now = int(time.time() * 1000)
-                if sc.vehicle is not None:
-                    client.publish("bsw/vehicle", json.dumps({
-                        "schema": "bsw.vehicle/1", "ts": now, "ts_kind": "epoch_ms", **sc.vehicle}))
-                dropped = sc.dropped_at(tick * dt_ms)
-                for m in simu.readings_at(sc.objects_at(simu, tick * dt_ms), ts=now, tick=tick,
-                                          group_fire=sc.group_fire, noise_m=sc.noise_m,
-                                          dropout=sc.dropout):
-                    if m["sensor_id"] in dropped:
-                        continue
-                    topic = "bsw/detection/" if m["schema"].startswith("bsw.detection") else "bsw/sensor/"
-                    client.publish(topic + m["sensor_id"], json.dumps(m))
+                # same per-tick wire stream the integration shim asserts on (sim.scenario_tick_messages)
+                for topic, payload in scenario_tick_messages(simu, sc, tick, dt_ms, ts=now):
+                    client.publish(topic, json.dumps(payload))
                 time.sleep(dt_ms / 1000.0)
     except KeyboardInterrupt:
         print("\n[live] stopping")
@@ -96,7 +140,13 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=1883)
     ap.add_argument("--dt", type=int, default=100, help="ms per tick")
     ap.add_argument("--loops", type=int, default=0, help="live: repeat count (0 = forever)")
+    ap.add_argument("--latency", action="store_true",
+                    help="print indicative danger-path latency across all scenarios (sim, not headline)")
     args = ap.parse_args()
+
+    if args.latency:
+        latency_summary(args.dt)
+        return
 
     if args.scenario == "all":
         if args.live:

@@ -151,6 +151,51 @@ class FusionEngine:
         if sid in self.cfg.sensor_to_zone:
             self.readings[sid] = (reading, arrival_mono_ms)
 
+    # --- runtime reconfiguration (bsw/cmd, 04 §4.3.6 / 05 §5.8) ---
+
+    def apply_cmd(self, op: str, args: dict | None) -> tuple[bool, str]:
+        """Apply a live bsw.cmd to the in-memory config (set_threshold / enable_zone /
+        disable_zone). Returns (changed, human-readable detail) for logging. Pure: mutates only
+        this engine's Config so it unit-tests without a broker. `reload_config` reloads from disk
+        and is handled one layer up (FusionService, which owns the file paths); set_volume/mute are
+        HMI-local and ignored here. Tunables are §5.8; this is the path the S6 threshold sweep uses."""
+        args = args or {}
+        if op == "set_threshold":
+            zid = args.get("zone_id")
+            z = self.cfg.zones.get(zid)
+            if z is None:
+                return False, f"unknown zone {zid!r}"
+            changed: list[str] = []
+            for key in ("danger_m", "caution_m", "risk_weight"):
+                if args.get(key) is None:
+                    continue
+                try:
+                    val = float(args[key])
+                except (TypeError, ValueError):
+                    return False, f"{zid} {key}: not a number ({args[key]!r})"
+                if val <= 0:
+                    return False, f"{zid} {key}: must be > 0 ({val})"
+                setattr(z, key, val)
+                changed.append(f"{key}={val:g}")
+            return (bool(changed), f"{zid} " + (" ".join(changed) if changed else "no-op"))
+        if op in ("enable_zone", "disable_zone"):
+            zid = args.get("zone_id")
+            z = self.cfg.zones.get(zid)
+            if z is None:
+                return False, f"unknown zone {zid!r}"
+            z.enabled = op == "enable_zone"
+            return True, f"{zid} enabled={z.enabled}"
+        if op in ("set_volume", "mute"):
+            return False, f"{op}: HMI-local, fusion ignores"
+        return False, f"unknown op {op!r}"
+
+    def replace_config(self, cfg: Config) -> None:
+        """Swap in a freshly-loaded Config (reload_config) and reconcile per-zone runtime: keep
+        state for surviving zones (no flicker on reload), init new zones to UNKNOWN (fail-loud,
+        not a fake SAFE), drop removed ones. Existing readings stay keyed by sensor_id."""
+        self.cfg = cfg
+        self.rt = {zid: self.rt.get(zid, ZoneRuntime()) for zid in cfg.zones}
+
     def tick(self, now_mono_ms: float, now_epoch_ms: int, vehicle: dict | None = None) -> list[dict]:
         standby = self._is_standby(vehicle)
         return [self._update_zone(zid, now_mono_ms, now_epoch_ms, vehicle, standby)

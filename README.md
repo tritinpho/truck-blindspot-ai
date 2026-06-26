@@ -58,6 +58,8 @@ model is finished. See [ADR-0005](docs/adr/ADR-0005-sim-real-parity.md).
 | [`docs/14-architecture-critique.md`](docs/14-architecture-critique.md) | Design-phase critique, round 1 + dispositions |
 | [`docs/15-architecture-critique-round2.md`](docs/15-architecture-critique-round2.md) | Design-phase critique, round 2 (pre-implementation) |
 | [`docs/16-build-plan.md`](docs/16-build-plan.md) | Sprint/task build plan (M1 → M3), mapped to the team split |
+| [`docs/17-demo-and-run.md`](docs/17-demo-and-run.md) | Run book: one-command bring-up, the demos, reproducible logs, latency |
+| [`docs/18-m3-summary.md`](docs/18-m3-summary.md) | M3 summary ⭐ — exit-criteria evidence, scenario coverage, CI approach |
 | [`docs/adr/`](docs/adr/) | Architecture Decision Records |
 | [`config/`](config/) | Example zone & sensor configuration |
 | [`schemas/`](schemas/) | JSON Schemas for the message contracts |
@@ -75,35 +77,33 @@ model is finished. See [ADR-0005](docs/adr/ADR-0005-sim-real-parity.md).
 
 ## Status
 
-🛠️ **G3 build — Sprint 0 (Foundation).** Contracts are **frozen at M1**. The repo skeleton, the
-dev broker (Docker Compose + Mosquitto), and the **L1 contract-test CI** are in place; the build
-sequence is in [`docs/16-build-plan.md`](docs/16-build-plan.md). No application logic yet —
-fusion / HMI / simulator land in S1+.
+✅ **G3 complete — M3 reached** ([`docs/18-m3-summary.md`](docs/18-m3-summary.md)). The full
+pipeline runs end-to-end in simulation: **broker → fusion → HMI**, driven by the scripted sim, with
+S1–S6 + the fault cases green in CI, a one-command bring-up, the HMI↔fusion command loop, and
+reproducible logs. Contracts are frozen at M1. Tuning the defaults to a credible operating point is
+**S6**; real-sensor bring-up is **G4**. Build sequence: [`docs/16-build-plan.md`](docs/16-build-plan.md).
 
-### Develop
+### Test (no hardware, no broker)
 
 ```bash
-# 1. L1 contract tests — every message + config validates against schemas/
-pip install -r tests/requirements.txt && pytest -q tests/
+pip install -r tests/requirements.txt
+pytest -q tests/ services/fusion-engine/tests        # L1 + L2 + L3 + integration shim + reproducibility
+```
 
-# 2. Dev broker — MQTT :1883, MQTT-over-WebSocket :9001
+### Run the full pipeline (M3 demo)
+
+```bash
+# 1. broker + fusion in one command
 docker compose -f deploy/docker-compose.yml up -d
 
-# 3. Smoke-test the contract end-to-end (with the broker up)
-python tools/publish_sample.py            # publishes bsw/sensor/right_mid
+# 2. drive a scenario over the broker (same wire messages a real rig emits)
+python tools/scenario_runner.py S2 --live            # right-turn squeeze → RIGHT DANGER
+
+# 3. open the HMI
+docker compose -f deploy/docker-compose.yml --profile hmi up -d   # http://localhost:8080
+# …or for hot reload:  cd apps/hmi && npm install && npm run dev   # http://localhost:5173
 ```
 
-### Run the vertical slice (S1) — broker up, then three terminals
-
-```bash
-# terminal 1 — fusion engine (sensor -> zone severity)
-cd services/fusion-engine && pip install -r requirements.txt && python -m fusion
-
-# terminal 2 — scripted object approaching/retreating on the RIGHT sensor
-python tools/sim_drive.py
-
-# terminal 3 — HMI (open the printed http://localhost:5173)
-cd apps/hmi && npm install && npm run dev
-```
-
-The RIGHT zone should walk **SAFE → CAUTION → DANGER → back** as the object closes and retreats.
+Kill fusion (`docker compose -f deploy/docker-compose.yml kill fusion`) to watch the map degrade to
+**SIGNAL LOST** within ~1 s (TC-F4). Full run book + the fail-loud demos:
+[`docs/17-demo-and-run.md`](docs/17-demo-and-run.md).

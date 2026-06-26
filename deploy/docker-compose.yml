@@ -1,6 +1,12 @@
-# BSW dev stack (ADR-0002). Sprint 0: the broker only.
-# Fusion, HMI, and the simulator are added as their images land (S1+).
-# Usage:  docker compose -f deploy/docker-compose.yml up -d
+# BSW dev stack (ADR-0002). `docker compose up` now brings up the broker + the fusion engine
+# (S5 — the images have landed). The in-cabin HMI is served on demand via the `hmi` profile; the
+# simulator / scenario_runner drives the pipeline from the host (parity, ADR-0005).
+#
+# Usage:
+#   docker compose -f deploy/docker-compose.yml up -d                 # broker + fusion (pipeline)
+#   docker compose -f deploy/docker-compose.yml --profile hmi up -d   # + served HMI at :8080
+#   python tools/scenario_runner.py S2 --live                         # drive a scenario
+#   # open the HMI: http://localhost:8080  (or `cd apps/hmi && npm run dev`)
 services:
   broker:
     image: eclipse-mosquitto:2
@@ -10,4 +16,29 @@ services:
       - "9001:9001"   # MQTT over WebSocket — in-cabin HMI
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    restart: unless-stopped
+
+  fusion:
+    build:
+      context: ..
+      dockerfile: services/fusion-engine/Dockerfile
+    container_name: bsw-fusion
+    depends_on:
+      - broker
+    volumes:
+      - ../config:/app/config:ro   # frozen-contract config; reload_config re-reads host edits
+      - ../logs:/app/logs          # events.jsonl/.db on the host for tools/log_replay.py (11 §11.6)
+    # connects to the broker by service name; if it starts first it restarts until the broker is up
+    restart: unless-stopped
+
+  hmi:
+    build:
+      context: ..
+      dockerfile: apps/hmi/Dockerfile
+    container_name: bsw-hmi
+    profiles: ["hmi"]
+    depends_on:
+      - broker
+    ports:
+      - "8080:80"    # http://localhost:8080 → static HMI; the browser talks to ws://localhost:9001
     restart: unless-stopped

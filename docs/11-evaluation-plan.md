@@ -29,6 +29,15 @@ latency figures for the report must come from **L4 bench**, not L3 sim — the s
 detection from zone geometry and would measure the model against itself
 ([14 §P2](14-architecture-critique.md) #6). L3 is for regression and logic validation.
 
+**L3 is realized in two layers (S5).** (a) *In-process* — the scenario runner drives the real
+fusion engine directly (`tests/test_scenarios.py`); (b) *over the bus* — an **integration shim**
+runs the real fusion **transport** (`FusionService`) and the real scenario wire stream over an
+in-process loopback bus and asserts the wired path (publisher → broker → fusion routing → retained
+`bsw/zone/#` → subscriber) reproduces the same outcomes (`tests/test_integration_shim.py`), plus a
+**broker-backed** test over real MQTT (`tests/test_integration_broker.py`). **CI** runs (a) + the
+shim on every push (no broker, deterministic) and the broker-backed test in a job that brings up the
+shipped `deploy/docker-compose.yml` (broker + fusion). See [`18-m3-summary.md`](18-m3-summary.md).
+
 ## 11.3 Metrics & acceptance criteria
 
 | Metric | Definition | Target (pass) | Source |

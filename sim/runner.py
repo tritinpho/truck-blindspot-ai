@@ -97,6 +97,30 @@ def build(zones_path: Path = DEFAULT_ZONES, sensors_path: Path = DEFAULT_SENSORS
     return sim, cfg
 
 
+def scenario_tick_messages(sim: Sim, scenario: Scenario, tick: int, dt_ms: int, ts: int,
+                           rng: Random | None = None) -> list[tuple[str, dict]]:
+    """The (topic, payload) wire stream for ONE tick of a scenario — the exact messages a real rig
+    (or `scenario_runner.py --live`) puts on the bus: a bsw/vehicle (when the scenario sets
+    context) plus one bsw/sensor / bsw/detection per firing sensor, with unplugged sensors filtered
+    out (TC-F1). Shared by the live publisher and the integration shim so there is ONE wire stream,
+    not two (parity, ADR-0005). `ts` only stamps the payload (display); fusion ages from local
+    arrival (ADR-0008), so the caller's clock choice does not change outcomes."""
+    t = tick * dt_ms
+    msgs: list[tuple[str, dict]] = []
+    if scenario.vehicle is not None:
+        msgs.append(("bsw/vehicle",
+                     {"schema": "bsw.vehicle/1", "ts": ts, "ts_kind": "epoch_ms", **scenario.vehicle}))
+    dropped = scenario.dropped_at(t)
+    for m in sim.readings_at(scenario.objects_at(sim, t), ts=ts, tick=tick,
+                             group_fire=scenario.group_fire, noise_m=scenario.noise_m,
+                             dropout=scenario.dropout, rng=rng):
+        if m["sensor_id"] in dropped:
+            continue
+        topic = "bsw/detection/" if m["schema"].startswith("bsw.detection") else "bsw/sensor/"
+        msgs.append((topic + m["sensor_id"], m))
+    return msgs
+
+
 def run(scenario: Scenario, dt_ms: int = 100,
         zones_path: Path = DEFAULT_ZONES, sensors_path: Path = DEFAULT_SENSORS) -> Timeline:
     sim, cfg = build(zones_path, sensors_path, enable_camera=scenario.enable_camera)

@@ -4,6 +4,6 @@ import pathlib
 import sys
 
 REPO = pathlib.Path(__file__).resolve().parent
-for _p in (str(REPO), str(REPO / "services" / "fusion-engine")):
+for _p in (str(REPO), str(REPO / "services" / "fusion-engine"), str(REPO / "tests")):
     if _p not in sys.path:
         sys.path.insert(0, _p)

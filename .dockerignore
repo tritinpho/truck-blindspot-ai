@@ -1,0 +1,11 @@
+# Build context is the repo root for both images (deploy/docker-compose.yml). Keep it lean and
+# never bake in local state.
+.git
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+.pytest_cache
+logs
+*.log
+**/.DS_Store
