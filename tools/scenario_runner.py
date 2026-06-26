@@ -29,6 +29,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")  # portable glyphs on the Windows cp1252 console
 
 import sim  # noqa: E402
+from sim.metrics import danger_latency_ms  # noqa: E402
 from sim.runner import build, scenario_tick_messages  # noqa: E402
 
 TOUCHED_ONLY = True
@@ -54,26 +55,11 @@ def run_all(verbose: bool) -> None:
 
 
 def _danger_latency(tl, zone: str, danger_m: float) -> int | None:
-    """Indicative danger-path latency (ms) from the deterministic timeline: time from an object
-    *crossing into* base danger_m (a genuine entry — a prior tick was outside it) to the zone
-    confirming DANGER. None when not applicable:
-      * the object never crosses danger_m from outside (static-from-start → first-reading recovery
-        adopts DANGER at t=0, which is not an approach latency), or
-      * DANGER fires before the crossing (a context boost warned early — the design intent, not a
-        latency to measure), or the zone never reaches DANGER.
-    So this measures exactly the operational approach case the NFR-01 danger-path budget is about."""
-    ticks = tl.ticks
-    rng = [tk["states"][zone]["nearest_range_m"] for tk in ticks]
-    crossing = None
-    for i in range(1, len(ticks)):
-        outside_before = rng[i - 1] is None or rng[i - 1] > danger_m
-        if outside_before and rng[i] is not None and rng[i] <= danger_m:
-            crossing = ticks[i]["t"]
-            break
-    eff = next((tk["t"] for tk in ticks if tk["states"][zone]["severity"] == "DANGER"), None)
-    if crossing is None or eff is None or eff < crossing:
-        return None
-    return eff - crossing
+    """Indicative danger-path latency for one zone in a timeline (sim.metrics.danger_latency_ms)."""
+    ts = [tk["t"] for tk in tl.ticks]
+    rng = [tk["states"][zone]["nearest_range_m"] for tk in tl.ticks]
+    sev = [tk["states"][zone]["severity"] for tk in tl.ticks]
+    return danger_latency_ms(ts, rng, sev, danger_m)
 
 
 def latency_summary(dt_ms: int) -> None:

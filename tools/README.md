@@ -10,6 +10,7 @@ Scripts that support development, demos, and the feasibility evaluation (Nội d
 | `scenario_runner.py` | S4/S5 | replay S1–S6 deterministically (L3), `--live` to the broker, or `--latency` for an indicative danger-path figure; uses [`sim/`](../sim/) ([08 §8.4](../docs/08-simulation.md)) |
 | `log_replay.py` | S4 | recompute metrics from recorded `logs/events.jsonl` ([11 §11.6](../docs/11-evaluation-plan.md)) |
 | `latency_observer.py` | S4 | single-observer, single-clock end-to-end latency ([ADR-0008](../docs/adr/ADR-0008-time-and-clock-domains.md) #3) |
+| `threshold_sweep.py` | S6 | sweep debounce levers → sensitivity/false-alarm trade-off, justify the operating point ([19](../docs/19-tuning-and-operating-point.md), NFR-09) |
 
 All of the above exist (S0→S5). The geometric model + scenarios + deterministic runner + the shared
 per-tick wire stream (`scenario_tick_messages`) they use live in [`sim/`](../sim/); the L3 suite is

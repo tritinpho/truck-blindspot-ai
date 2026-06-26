@@ -1,8 +1,9 @@
 """Unit tests for the eval-tool cores (sim/metrics.py) — pure, no broker (so they run in CI).
-Covers tools/log_replay.py (summarize_events) and tools/latency_observer.py (LatencyPairer)."""
+Covers tools/log_replay.py (summarize_events), tools/latency_observer.py (LatencyPairer), and the
+tools/threshold_sweep.py metric helpers (danger_latency_ms, danger_dwell_frac)."""
 from __future__ import annotations
 
-from sim.metrics import LatencyPairer, summarize_events
+from sim.metrics import LatencyPairer, danger_dwell_frac, danger_latency_ms, summarize_events
 
 
 def test_summarize_counts_and_flicker():
@@ -45,3 +46,33 @@ def test_latency_ignores_danger_without_stimulus():
     p = LatencyPairer()
     p.effect("RIGHT", "DANGER", 100.0)    # no prior stimulus → nothing to pair
     assert p.values_ms() == []
+
+
+# ------------------------------------------------------- threshold-sweep metric helpers (S6)
+
+def test_danger_latency_crossing_to_confirmed_danger():
+    ts = [0, 100, 200, 300, 400]
+    rng = [2.0, 1.5, 0.9, 0.9, 0.9]                          # crosses danger_m=1.0 at t=200
+    sev = ["SAFE", "SAFE", "CAUTION", "DANGER", "DANGER"]    # confirms DANGER at t=300
+    assert danger_latency_ms(ts, rng, sev, 1.0) == 100
+
+
+def test_danger_latency_none_when_static_from_start():
+    # object already inside danger at t=0 → no crossing from outside → not an approach latency
+    assert danger_latency_ms([0, 100, 200], [0.7, 0.7, 0.7], ["DANGER"] * 3, 1.0) is None
+
+
+def test_danger_latency_none_when_danger_precedes_crossing():
+    # context boost warned before the object crossed base danger_m → not a latency to report
+    assert danger_latency_ms([0, 100, 200], [1.5, 1.2, 0.9], ["DANGER"] * 3, 1.0) is None
+
+
+def test_danger_latency_none_when_never_danger():
+    assert danger_latency_ms([0, 100, 200], [2.0, 0.9, 0.9],
+                             ["SAFE", "CAUTION", "CAUTION"], 1.0) is None
+
+
+def test_danger_dwell_frac():
+    assert danger_dwell_frac(["SAFE", "DANGER", "DANGER", "SAFE"]) == 0.5
+    assert danger_dwell_frac(["SAFE", "SAFE"]) == 0.0
+    assert danger_dwell_frac([]) == 0.0

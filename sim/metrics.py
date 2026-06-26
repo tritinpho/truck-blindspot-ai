@@ -2,12 +2,39 @@
 
   * summarize_events  — recompute report metrics from a transition log (11 §11.6 replay).
   * LatencyPairer     — single-observer, single-clock end-to-end latency (ADR-0008 #3).
+  * danger_latency_ms — indicative danger-path latency from a deterministic timeline (S6 sweep).
+  * danger_dwell_frac — fraction of a run a zone spent in DANGER (false-alarm exposure, S6).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 FLICKER_MS = 1000  # a severity reversal (A→B→A) within this window counts as flicker (FR-09)
+
+
+def danger_latency_ms(ts: list[int], rng: list[float | None], sev: list[str],
+                      danger_m: float) -> int | None:
+    """Indicative danger-path latency (ms): time from an object *crossing into* base danger_m
+    (a prior tick was outside it) to the zone confirming DANGER. None when there is no such
+    crossing (e.g. static-from-start, where the first reading recovers straight to DANGER), DANGER
+    never fires, or DANGER preceded the crossing (a context boost warned early — not a latency).
+    This isolates the operational approach case the NFR-01 danger-path budget is about."""
+    crossing = None
+    for i in range(1, len(ts)):
+        outside_before = rng[i - 1] is None or rng[i - 1] > danger_m
+        if outside_before and rng[i] is not None and rng[i] <= danger_m:
+            crossing = ts[i]
+            break
+    danger = next((ts[i] for i in range(len(ts)) if sev[i] == "DANGER"), None)
+    if crossing is None or danger is None or danger < crossing:
+        return None
+    return danger - crossing
+
+
+def danger_dwell_frac(sev: list[str]) -> float:
+    """Fraction of ticks a zone spent in DANGER — the sim's false-alarm exposure proxy for a
+    nuisance scenario (an object that should hold CAUTION but is noisily pushed into DANGER)."""
+    return sev.count("DANGER") / len(sev) if sev else 0.0
 
 
 def summarize_events(events: list[dict]) -> dict:

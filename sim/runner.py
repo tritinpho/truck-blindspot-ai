@@ -56,6 +56,20 @@ class Timeline:
         s = self.severities(zone)
         return sum(1 for a, b in zip(s, s[1:]) if a != b)
 
+    def transition_events(self) -> list[dict]:
+        """Severity-change rows {ts, zone_id, from, to} for all zones, in the same shape the live
+        eventlog emits — so sim.metrics.summarize_events computes flicker/to-DANGER identically on
+        a sweep run (no separate metric definition)."""
+        events: list[dict] = []
+        prev: dict[str, str] = {}
+        for tk in self.ticks:
+            for zid, st in tk["states"].items():
+                sev = st["severity"]
+                if zid in prev and prev[zid] != sev:
+                    events.append({"ts": tk["t"], "zone_id": zid, "from": prev[zid], "to": sev})
+                prev[zid] = sev
+        return events
+
     def _states_at(self, t: int | None) -> dict:
         tk = self.ticks[-1] if t is None else next(x for x in self.ticks if x["t"] == t)
         return tk["states"]
@@ -124,10 +138,18 @@ def scenario_tick_messages(sim: Sim, scenario: Scenario, tick: int, dt_ms: int, 
 def run(scenario: Scenario, dt_ms: int = 100,
         zones_path: Path = DEFAULT_ZONES, sensors_path: Path = DEFAULT_SENSORS) -> Timeline:
     sim, cfg = build(zones_path, sensors_path, enable_camera=scenario.enable_camera)
-    eng = FusionEngine(cfg)
-    rng = Random(scenario.seed)
-    tl = Timeline(cfg)
+    return run_on(scenario, sim, cfg, dt_ms=dt_ms)
 
+
+def run_on(scenario: Scenario, sim: Sim, cfg: Config, dt_ms: int = 100,
+           seed: int | None = None) -> Timeline:
+    """Drive the real FusionEngine over an already-built `cfg` for one scenario on a controlled
+    clock. Separated from `run` so the S6 sweep can try tunable/threshold overrides (mutate `cfg`
+    before calling) and average a noisy nuisance scenario over many seeds (`seed` overrides the
+    scenario's). Same code path the L3 suite exercises — no fork."""
+    eng = FusionEngine(cfg)
+    rng = Random(scenario.seed if seed is None else seed)
+    tl = Timeline(cfg)
     n = scenario.duration_ms // dt_ms
     for tick in range(n + 1):
         t = tick * dt_ms

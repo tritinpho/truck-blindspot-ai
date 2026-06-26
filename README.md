@@ -60,6 +60,7 @@ model is finished. See [ADR-0005](docs/adr/ADR-0005-sim-real-parity.md).
 | [`docs/16-build-plan.md`](docs/16-build-plan.md) | Sprint/task build plan (M1 → M3), mapped to the team split |
 | [`docs/17-demo-and-run.md`](docs/17-demo-and-run.md) | Run book: one-command bring-up, the demos, reproducible logs, latency |
 | [`docs/18-m3-summary.md`](docs/18-m3-summary.md) | M3 summary ⭐ — exit-criteria evidence, scenario coverage, CI approach |
+| [`docs/19-tuning-and-operating-point.md`](docs/19-tuning-and-operating-point.md) | S6 tuning: the debounce sweep, the sensitivity/false-alarm trade-off, the chosen defaults |
 | [`docs/adr/`](docs/adr/) | Architecture Decision Records |
 | [`config/`](config/) | Example zone & sensor configuration |
 | [`schemas/`](schemas/) | JSON Schemas for the message contracts |
@@ -80,8 +81,9 @@ model is finished. See [ADR-0005](docs/adr/ADR-0005-sim-real-parity.md).
 ✅ **G3 complete — M3 reached** ([`docs/18-m3-summary.md`](docs/18-m3-summary.md)). The full
 pipeline runs end-to-end in simulation: **broker → fusion → HMI**, driven by the scripted sim, with
 S1–S6 + the fault cases green in CI, a one-command bring-up, the HMI↔fusion command loop, and
-reproducible logs. Contracts are frozen at M1. Tuning the defaults to a credible operating point is
-**S6**; real-sensor bring-up is **G4**. Build sequence: [`docs/16-build-plan.md`](docs/16-build-plan.md).
+reproducible logs. Contracts are frozen at M1. **S6** tuning has data-justified the operating point
+(the debounce defaults sit at the sensitivity/false-alarm knee — [`docs/19`](docs/19-tuning-and-operating-point.md));
+real-sensor bring-up is **G4**. Build sequence: [`docs/16-build-plan.md`](docs/16-build-plan.md).
 
 ### Test (no hardware, no broker)
 

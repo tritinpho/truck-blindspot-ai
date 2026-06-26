@@ -47,7 +47,7 @@ sequence, not in parallel. Two consequences shape everything below:
 | **S3** HMI build-out | all 8 zones, audio, liveness | full HMI demoable; UNKNOWN / SIGNAL-LOST works |
 | **S4** Sim + scenario runner | geometric sim + S1–S6 replay | **L3** scenario suite runs in CI |
 | **S5** → **M3** ✅ | consolidate + first review | ⭐ **M3 reached**: S1–S6 green end-to-end; pipeline demoable; logs reproducible ([`18`](18-m3-summary.md)) |
-| **S6** Tune + demo | tune defaults, demo build, buffer | tuned operating point; demo; ready for G4 |
+| **S6** Tune + demo | tune defaults, demo build, buffer | **operating point data-justified** ([`19`](19-tuning-and-operating-point.md)); demo polish deferred (cosmetic) |
 
 ### S0 — Foundation
 - Scaffold the [`03 §3.7`](03-architecture.md) layout; `git init` + tag; `deploy/docker-compose.yml`
@@ -113,11 +113,20 @@ sequence, not in parallel. Two consequences shape everything below:
 - **Exit:** **M3 reached** — full pipeline runs all scenarios in sim, demoable (incl. boot
   warming-up + TC-F4 kill→SIGNAL-LOST); logs replay reproducibly. Summary: [`18`](18-m3-summary.md).
 
-### S6 — Tune + demo + buffer (NFR-09)
-- Threshold sweep via `bsw/cmd/set_threshold`, log-driven → pick the false-alarm / sensitivity
-  operating point; commit defaults. Demo build; day/night polish; **buffer for solo slippage.**
+### S6 — Tune + demo + buffer (NFR-09) — in progress
+- [x] **Operating point chosen + justified with data.** `tools/threshold_sweep.py` sweeps the
+  debounce levers (confirm/release/margin/immediate_danger_factor) over detection (latency) vs
+  nuisance (noise-induced false-DANGER) scenarios; judged against NFR-01 with the real-path latency
+  the sim omits. Result: the **current defaults are validated at the knee** (`confirm=3` breaks the
+  latency budget once the physical path is added; `confirm=1` is too noisy). No config change; suite
+  unchanged. Per-zone thresholds remain live-tunable via `bsw/cmd/set_threshold` (S5). Write-up:
+  [`19-tuning-and-operating-point.md`](19-tuning-and-operating-point.md). **Re-run at L4** with real
+  noise stats to confirm/refine.
+- [ ] Demo build; day/night polish — **deferred (cut-first cosmetic, §16.7)**; not needed for the
+  tuning result.
 - **W:** if a student has ESP32 group-fire firmware on the bench, begin the G4 hand-off.
-- **Exit:** tuned defaults; demo build; green light for G4 (real sensors → same HMI).
+- **Exit:** tuned defaults ✅ (data-justified); demo build (cosmetic, pending); green light for G4
+  (real sensors → same HMI — parity already proven through M3).
 
 ## 16.4 Parallel tracks
 
