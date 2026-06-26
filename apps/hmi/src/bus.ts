@@ -6,16 +6,11 @@
 // (performance.now()), never the message `ts`. That local time is what the liveness clock ages.
 
 import mqtt from "mqtt";
-import type { Health, SensorReading, ZoneState } from "./types";
+import type { Health, SensorReading } from "./types";
 import type { AppState } from "./store";
+import { isRenderableZone } from "./validate";
 
 const DIAG_TOPICS = ["bsw/sensor/#", "bsw/detection/#"];
-
-// The only severities the renderer (theme.SEVERITY, scene.ts, select.ts) can key on. A zone
-// message carrying anything else — version skew, or a spoof on the anonymous broker — must be
-// dropped here: SEVERITY[severity] would otherwise be undefined and throw inside the rAF loop,
-// freezing the whole display (a frozen-green failure, the exact mode ADR-0006 exists to avoid).
-const VALID_SEVERITIES = new Set(["SAFE", "CAUTION", "DANGER", "UNKNOWN"]);
 
 export class Bus {
   private client: mqtt.MqttClient;
@@ -45,9 +40,10 @@ export class Bus {
     const parts = topic.split("/");
 
     if (parts[1] === "zone") {
-      const z = data as ZoneState;
-      if (!z.zone_id || !VALID_SEVERITIES.has(z.severity)) return;
-      this.state.zones.set(z.zone_id, { state: z, receiptMono: now });
+      // Drop spoofed/skewed zone messages at the boundary (unknown severity or a non-numeric
+      // nearest_range_m would otherwise throw in the rAF loop and freeze the display — validate.ts).
+      if (!isRenderableZone(data)) return;
+      this.state.zones.set(data.zone_id, { state: data, receiptMono: now });
       this.state.lastZoneReceiptMono = now;
       this.state.sawFirstZone = true;
       // a zone update proves fusion is alive — clear any latched fault

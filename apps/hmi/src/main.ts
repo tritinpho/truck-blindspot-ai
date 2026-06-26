@@ -63,7 +63,7 @@ window.addEventListener("resize", () => scene.fit());
 const prevSeverity = new Map<string, Severity>();
 let prevPhase = state.phase;
 
-function loop(): void {
+function renderFrame(): void {
   const now = performance.now();
 
   const liveness = evaluateLiveness({
@@ -128,8 +128,20 @@ function loop(): void {
   if (state.view === "drive") {
     scene.render({ states, phase: liveness.phase, localEnabled: state.localEnabled, animMs: now });
   }
+}
 
-  requestAnimationFrame(loop);
+// A single render error must never permanently kill the loop: requestAnimationFrame is re-armed in
+// `finally`, so a bad frame (e.g. an unexpected wire value the boundary missed) is logged and the
+// next frame still runs — the liveness clock then degrades the map to UNKNOWN if data really
+// stopped (ADR-0006), rather than leaving a frozen last frame on screen.
+function loop(): void {
+  try {
+    renderFrame();
+  } catch (e) {
+    console.error("[hmi] render loop error (continuing):", e);
+  } finally {
+    requestAnimationFrame(loop);
+  }
 }
 
 requestAnimationFrame(loop);

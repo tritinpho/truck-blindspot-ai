@@ -163,19 +163,27 @@ export class UI {
       enable.checked = z.enabled;
       enable.addEventListener("change", () => this.cb.setZoneEnabled(z.id, enable.checked));
 
-      const caution = this.slider(z.caution_m, 0.3, 4.0, (v) =>
-        this.cb.setThreshold(z.id, v, Number(dangerS.value)));
-      const cautionS = caution.input;
-      const danger = this.slider(z.danger_m, 0.2, 3.0, (v) =>
-        this.cb.setThreshold(z.id, Number(cautionS.value), v));
-      const dangerS = danger.input;
+      const caution = this.slider(z.caution_m, 0.3, 4.0);
+      const danger = this.slider(z.danger_m, 0.2, 3.0);
+      // danger_m is the inner threshold and must stay <= caution_m (fusion rejects an inverted
+      // pair, 05 §5.2). Couple the sliders so the UI can't emit one: nudge danger down to meet
+      // caution before publishing, and keep both value labels in step.
+      const push = () => {
+        const c = Number(caution.input.value);
+        if (Number(danger.input.value) > c) danger.input.value = String(c);
+        caution.sync();
+        danger.sync();
+        this.cb.setThreshold(z.id, c, Number(danger.input.value));
+      };
+      caution.input.addEventListener("input", push);
+      danger.input.addEventListener("input", push);
 
       row.append(enable, name, this.labeled("caution", caution.wrap), this.labeled("danger", danger.wrap));
       host.appendChild(row);
     }
   }
 
-  private slider(value: number, min: number, max: number, onChange: (v: number) => void) {
+  private slider(value: number, min: number, max: number) {
     const wrap = document.createElement("div");
     wrap.className = "sliderWrap";
     const input = document.createElement("input");
@@ -186,13 +194,10 @@ export class UI {
     input.value = String(value);
     const out = document.createElement("span");
     out.className = "sliderOut";
-    out.textContent = `${value.toFixed(1)} m`;
-    input.addEventListener("input", () => {
-      out.textContent = `${Number(input.value).toFixed(1)} m`;
-      onChange(Number(input.value));
-    });
+    const sync = () => { out.textContent = `${Number(input.value).toFixed(1)} m`; };
+    sync();
     wrap.append(input, out);
-    return { wrap, input };
+    return { wrap, input, sync };
   }
 
   private labeled(key: string, child: HTMLElement): HTMLElement {
