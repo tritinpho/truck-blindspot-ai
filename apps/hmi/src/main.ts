@@ -1,101 +1,134 @@
-import mqtt from "mqtt";
-import zonesRaw from "../../../config/zones.example.json";
+// HMI entry point (S3). Wires the broker → store → render loop and ties together the scene,
+// audio, liveness, and views. The full in-cabin HMI of 06-hmi-design.md, driven only by MQTT.
+//
+//   data in:  bsw/zone/#  (severity per zone)   + bsw/health/fusion (liveness)
+//   audio:    single worst severity (05 §5.5)    + rate-limited fault chime
+//   liveness: local-receipt freshness clock (ADR-0006/0008) → WARMING_UP / MONITORING / SIGNAL_LOST
+//   views:    drive (Canvas) · settings (→ bsw/cmd) · hidden diagnostics
 
-// S1 vertical slice: subscribe to bsw/zone/# and tint a config-driven top-view by severity.
-// The full HMI (icons, audio, liveness clock, settings) lands in S3 (06-hmi-design.md).
-
-type Severity = "SAFE" | "CAUTION" | "DANGER" | "UNKNOWN";
-type Zone = { id: string; enabled: boolean; polygon_norm: number[][] };
-type ZonesConfig = { truck_outline_norm: number[][]; zones: Zone[] };
-
-const zonesConfig = zonesRaw as unknown as ZonesConfig;
-
-const FILL: Record<Severity, string> = {
-  SAFE: "rgba(70,84,102,0.25)",
-  CAUTION: "rgba(240,170,40,0.55)",
-  DANGER: "rgba(225,60,55,0.78)",
-  UNKNOWN: "rgba(120,124,134,0.30)",
-};
+import { loadSceneConfig } from "./config";
+import { createState, isMuted, lastFusionReceipt, zoneStates } from "./store";
+import { evaluateLiveness } from "./liveness";
+import { audioTarget, isStandby, worstActiveZone, type AudioTarget } from "./select";
+import { Scene } from "./scene";
+import { AudioEngine } from "./audio";
+import { Bus } from "./bus";
+import { UI, type BannerVM, type UICallbacks } from "./ui";
+import { setLang } from "./i18n";
+import type { Severity } from "./types";
 
 const BROKER = import.meta.env.VITE_BROKER_WS ?? "ws://localhost:9001";
-const severity = new Map<string, Severity>();
+const MUTE_MS = 60_000; // timed mute (never hides visuals)
 
-const canvas = document.getElementById("scene") as HTMLCanvasElement;
-const ctx = canvas.getContext("2d")!;
+const cfg = loadSceneConfig();
+const state = createState(cfg.zones.map((z) => z.id));
+const zonePriorities = cfg.zones.map((z) => ({ id: z.id, risk_weight: z.risk_weight }));
 
-function fit(): void {
-  const s = Math.max(320, Math.min(window.innerWidth, window.innerHeight) - 24);
-  canvas.width = s;
-  canvas.height = s;
-  render();
-}
+const scene = new Scene(document.getElementById("scene") as HTMLCanvasElement, cfg);
+const audio = new AudioEngine();
+const bus = new Bus(BROKER, state);
 
-function trace(points: number[][]): void {
-  const { width: W, height: H } = canvas;
-  ctx.beginPath();
-  points.forEach(([x, y], i) => (i ? ctx.lineTo(x * W, y * H) : ctx.moveTo(x * W, y * H)));
-  ctx.closePath();
-}
+const callbacks: UICallbacks = {
+  toggleMute() {
+    state.audio.mutedUntilMono = state.audio.mutedUntilMono ? null : performance.now() + MUTE_MS;
+  },
+  setVolume(v) { state.audio.volume = v; audio.setVolume(v); },
+  setLang(l) { setLang(l); state.lang = l; ui.relocalize(); },
+  setView(v) {
+    state.view = v;
+    ui.showView(v);
+    bus.setDiagnostics(v === "diagnostics");
+    audio.ensure(); // a view switch is a user gesture — unlock audio
+    if (v === "drive") scene.fit();
+  },
+  setThreshold(zoneId, caution_m, danger_m) {
+    bus.publishCmd("set_threshold", { zone_id: zoneId, caution_m, danger_m });
+  },
+  setZoneEnabled(zoneId, enabled) {
+    state.localEnabled.set(zoneId, enabled);
+    bus.publishCmd(enabled ? "enable_zone" : "disable_zone", { zone_id: zoneId });
+  },
+  userGesture() { audio.ensure(); },
+};
 
-function centroid(points: number[][]): [number, number] {
-  const n = points.length;
-  const x = points.reduce((a, p) => a + p[0], 0) / n;
-  const y = points.reduce((a, p) => a + p[1], 0) / n;
-  return [x, y];
-}
+const ui = new UI(cfg, state, callbacks);
+scene.fit();
+window.addEventListener("resize", () => scene.fit());
 
-function label(text: string, cx: number, cy: number, px: number, color: string): void {
-  ctx.fillStyle = color;
-  ctx.font = `${Math.round(px)}px system-ui`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, cx * canvas.width, cy * canvas.height);
-}
+// --- transition tracking for the fault chime ---
+const prevSeverity = new Map<string, Severity>();
+let prevPhase = state.phase;
 
-function render(): void {
-  const { width: W, height: H } = canvas;
-  ctx.clearRect(0, 0, W, H);
+function loop(): void {
+  const now = performance.now();
 
-  for (const z of zonesConfig.zones) {
-    if (!z.enabled) continue;
-    const sev = severity.get(z.id) ?? "UNKNOWN";
-    trace(z.polygon_norm);
-    ctx.fillStyle = FILL[sev];
-    ctx.fill();
-    ctx.strokeStyle = "rgba(200,210,220,0.22)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    const [cx, cy] = centroid(z.polygon_norm);
-    label(z.id, cx, cy, W * 0.016, "#aeb6c2");
-  }
+  const liveness = evaluateLiveness({
+    nowMono: now,
+    lastFusionReceiptMono: lastFusionReceipt(state),
+    sawFirstZone: state.sawFirstZone,
+    fusionFaultLatched: state.fusionFaultLatched,
+  });
+  state.phase = liveness.phase;
 
-  trace(zonesConfig.truck_outline_norm);
-  ctx.fillStyle = "rgba(38,46,58,0.96)";
-  ctx.fill();
-  ctx.strokeStyle = "#5b6675";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  const [tx, ty] = centroid(zonesConfig.truck_outline_norm);
-  label("CAB", tx, ty, W * 0.02, "#8a94a4");
-}
+  const states = zoneStates(state);
+  const standby = isStandby(states.values());
+  const muted = isMuted(state, now);
 
-const client = mqtt.connect(BROKER);
-client.on("connect", () => {
-  console.info(`[hmi] connected to ${BROKER}`);
-  client.subscribe("bsw/zone/#");
-});
-client.on("message", (_topic, payload) => {
-  try {
-    const z = JSON.parse(payload.toString());
-    if (z.zone_id && z.severity) {
-      severity.set(z.zone_id, z.severity as Severity);
-      render();
+  // --- audio: single worst severity while monitoring; standby/mute → silent ---
+  const target: AudioTarget =
+    liveness.phase === "MONITORING" ? audioTarget(states.values(), { standby, muted }) : "SILENT";
+  audio.update(target, now);
+
+  // --- fault chime: a zone going UNKNOWN under a healthy system, or the system going SIGNAL_LOST ---
+  if (!muted && !standby) {
+    if (prevPhase === "MONITORING" && liveness.phase === "SIGNAL_LOST") {
+      audio.chime(now); // whole-system fault (rate-limited internally)
+    } else if (liveness.phase === "MONITORING") {
+      for (const [id, st] of states) {
+        const prev = prevSeverity.get(id);
+        if (prev && prev !== "UNKNOWN" && st.severity === "UNKNOWN") { audio.chime(now); break; }
+      }
     }
-  } catch {
-    /* ignore malformed payloads */
   }
-});
-client.on("error", (e) => console.error("[hmi] mqtt error:", e));
+  for (const [id, st] of states) prevSeverity.set(id, st.severity);
+  prevPhase = liveness.phase;
 
-window.addEventListener("resize", fit);
-fit();
+  // --- primary-alert banner: worst risk_weight × severity (05 §5.6) ---
+  let banner: BannerVM | null = null;
+  if (liveness.phase === "MONITORING") {
+    const worst = worstActiveZone(zonePriorities, states);
+    if (worst) {
+      banner = {
+        severity: worst.state.severity,
+        zoneId: worst.id,
+        rangeM: worst.state.nearest_range_m ?? null,
+        objectClass: worst.state.object_class ?? null,
+      };
+    }
+  }
+
+  ui.render({
+    phase: liveness.phase,
+    live: liveness.live,
+    animMs: now,
+    banner,
+    health: state.fusionHealth,
+    muted,
+    muteRemainingS: state.audio.mutedUntilMono ? (state.audio.mutedUntilMono - now) / 1000 : 0,
+    audioSuspended: audio.suspended,
+  });
+
+  if (state.view === "drive") {
+    scene.render({ states, phase: liveness.phase, localEnabled: state.localEnabled, animMs: now });
+  }
+
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+
+// Dev-only debug handle (guarded by import.meta.env.DEV → stripped from `vite build` output).
+// Lets the console seed zone state for visual checks when no broker is running.
+if (import.meta.env.DEV) {
+  (globalThis as unknown as { __bsw?: unknown }).__bsw = { state, cfg, bus, audio };
+}

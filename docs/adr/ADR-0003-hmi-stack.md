@@ -1,6 +1,6 @@
 # ADR-0003: Web stack for the in-cabin HMI
 
-**Status:** Accepted
+**Status:** Accepted — UI-framework sub-choice refined by [ADR-0009](ADR-0009-hmi-framework-vanilla-ts.md) (vanilla TS instead of React; all other choices stand)
 **Date:** 2026-06-26
 **Deciders:** Software team
 

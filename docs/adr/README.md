@@ -7,12 +7,13 @@ Status values: Proposed · Accepted · Deprecated · Superseded.
 |-----|-------|--------|
 | [ADR-0001](ADR-0001-edge-compute-platform.md) | Central compute platform | Accepted |
 | [ADR-0002](ADR-0002-message-bus.md) | MQTT as the common message bus | Accepted |
-| [ADR-0003](ADR-0003-hmi-stack.md) | Web stack for the in-cabin HMI | Accepted |
+| [ADR-0003](ADR-0003-hmi-stack.md) | Web stack for the in-cabin HMI | Accepted (framework refined by ADR-0009) |
 | [ADR-0004](ADR-0004-sensor-modality.md) | Sensor modality strategy | Accepted |
 | [ADR-0005](ADR-0005-sim-real-parity.md) | Sim/real parity via shared contracts | Accepted |
 | [ADR-0006](ADR-0006-fail-loud-compute-liveness.md) | Fail-loud on compute death — watchdog + HMI liveness | Accepted |
 | [ADR-0007](ADR-0007-sensor-firing-schedule.md) | Sensor firing schedule & realistic refresh rate | Accepted |
 | [ADR-0008](ADR-0008-time-and-clock-domains.md) | Time, clock domains & cross-node age/latency | Accepted |
+| [ADR-0009](ADR-0009-hmi-framework-vanilla-ts.md) | HMI UI framework — vanilla TS (refines ADR-0003) | Accepted |
 
 These are *proposed/accepted for the design phase* and should be revisited if constraints
 (budget, hardware availability, scope) change. ADR-0006 and ADR-0007 arose from the
