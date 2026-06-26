@@ -65,6 +65,33 @@ def test_set_threshold_bad_values_rejected():
     assert eng.cfg.zones["RIGHT"].danger_m == 1.0  # unchanged from default
 
 
+def test_set_threshold_rejects_inverted_bands():
+    """danger_m must stay <= caution_m (05 §5.2): an inverted pair would read DANGER where it should
+    read CAUTION. Rejected whole — both when sent together and when danger crosses the EXISTING
+    caution — and the zone keeps its previous, consistent thresholds (no partial mutation)."""
+    eng = make_engine()
+    d0, c0 = eng.cfg.zones["RIGHT"].danger_m, eng.cfg.zones["RIGHT"].caution_m  # 1.0, 1.8
+    changed, detail = eng.apply_cmd("set_threshold",
+                                    {"zone_id": "RIGHT", "danger_m": 2.0, "caution_m": 1.0})
+    assert not changed and "must be <=" in detail
+    assert (eng.cfg.zones["RIGHT"].danger_m, eng.cfg.zones["RIGHT"].caution_m) == (d0, c0)
+    assert not eng.apply_cmd("set_threshold", {"zone_id": "RIGHT", "danger_m": 2.5})[0]  # > caution 1.8
+    assert eng.cfg.zones["RIGHT"].danger_m == d0  # still untouched
+    # the boundary case danger_m == caution_m is allowed
+    assert eng.apply_cmd("set_threshold", {"zone_id": "RIGHT", "danger_m": 1.8, "caution_m": 1.8})[0]
+
+
+def test_set_threshold_no_partial_mutation_on_reject():
+    """A valid field followed by an invalid one must not leave the valid one half-applied."""
+    eng = make_engine()
+    d0, c0 = eng.cfg.zones["RIGHT"].danger_m, eng.cfg.zones["RIGHT"].caution_m
+    changed, _ = eng.apply_cmd("set_threshold",
+                               {"zone_id": "RIGHT", "caution_m": 2.0, "risk_weight": -3})
+    assert not changed
+    assert eng.cfg.zones["RIGHT"].caution_m == c0  # the valid caution_m was NOT applied
+    assert eng.cfg.zones["RIGHT"].danger_m == d0
+
+
 def test_disable_zone_drops_it_from_tick_then_enable_restores():
     eng = make_engine()
     assert "LEFT" in eng.cfg.zone_ids

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import math
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -35,6 +36,18 @@ def _valid_range(rng) -> bool:
     `NaN`/`Infinity` by default), negatives."""
     return (isinstance(rng, (int, float)) and not isinstance(rng, bool)
             and math.isfinite(rng) and rng >= 0)
+
+
+def _finite_num(x) -> float | None:
+    """A usable number from possibly-untrusted wire input, else None — the vehicle-context analogue
+    of `_valid_range`. A malformed `bsw/vehicle` (speed_kph as a string/list on the anonymous
+    broker, or a buggy adapter) must never reach arithmetic in the tick: `_is_standby` compares
+    speed_kph, and without this guard one bad message crashes EVERY tick — the whole zone stream
+    stalls until a valid vehicle message replaces it (fail-loud to UNKNOWN, but a total loss of the
+    advisory function)."""
+    if isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x):
+        return float(x)
+    return None
 
 
 def _zone_side(zone_id: str) -> str | None:
@@ -93,6 +106,21 @@ def load_config(zones_path: Path, sensors_path: Path) -> Config:
             continue  # phase-2 camera etc.
         sensor_to_zone[s["id"]] = s["zone"]
         zone_to_sensors.setdefault(s["zone"], []).append(s["id"])
+
+    # Coverage sanity (phase-2 gap): the engine ranges from ultrasonic and reads only object_class
+    # from a camera detection — it does NOT consume detection.est_range_m. So an enabled zone whose
+    # only sensor is a camera classifies an object but never escalates on range. The shipped config
+    # never does this (cam_right is co-located with right_mid), but warn loudly so a future
+    # camera-only zone can't silently ship with no range coverage.
+    ranging_zones = {s["zone"] for s in sc["sensors"]
+                     if s.get("id") and s.get("enabled", True)
+                     and s.get("modality", "ultrasonic") != "camera"}
+    for zid, z in zones.items():
+        if z.enabled and zid not in ranging_zones:
+            warnings.warn(
+                f"zone {zid!r} has no enabled ranging sensor — it can show object class but never "
+                f"escalate on range (camera est_range_m is not consumed; phase-2)",
+                stacklevel=2)
 
     ctx_in = zc.get("context", {})
     boost = ctx_in.get("turn_signal_boost", {})
@@ -185,7 +213,9 @@ class FusionEngine:
             z = self.cfg.zones.get(zid)
             if z is None:
                 return False, f"unknown zone {zid!r}"
-            changed: list[str] = []
+            # Parse + validate ALL provided fields first (no mutation yet) so a later rejection can't
+            # leave the zone half-updated — a partial setattr would silently mis-tune a safety zone.
+            proposed: dict[str, float] = {}
             for key in ("danger_m", "caution_m", "risk_weight"):
                 if args.get(key) is None:
                     continue
@@ -195,9 +225,21 @@ class FusionEngine:
                     return False, f"{zid} {key}: not a number ({args[key]!r})"
                 if val <= 0:
                     return False, f"{zid} {key}: must be > 0 ({val})"
+                proposed[key] = val
+            if not proposed:
+                return False, f"{zid} no-op"
+            # Cross-field invariant (05 §5.2): danger_m is the INNER threshold, so it must stay
+            # <= caution_m. An inverted pair makes a mid-range object read DANGER where it should
+            # read CAUTION (over-warning → alarm fatigue). Check the RESULTING pair (proposed or
+            # current) and reject the whole command rather than apply an inconsistent one.
+            new_danger = proposed.get("danger_m", z.danger_m)
+            new_caution = proposed.get("caution_m", z.caution_m)
+            if new_danger > new_caution:
+                return False, (f"{zid} danger_m ({new_danger:g}) must be <= "
+                               f"caution_m ({new_caution:g})")
+            for key, val in proposed.items():
                 setattr(z, key, val)
-                changed.append(f"{key}={val:g}")
-            return (bool(changed), f"{zid} " + (" ".join(changed) if changed else "no-op"))
+            return True, f"{zid} " + " ".join(f"{k}={v:g}" for k, v in proposed.items())
         if op in ("enable_zone", "disable_zone"):
             zid = args.get("zone_id")
             z = self.cfg.zones.get(zid)
@@ -258,7 +300,10 @@ class FusionEngine:
     def _is_standby(self, vehicle) -> bool:
         if not vehicle or not self.cfg.context.get("park_standby_mute_audio"):
             return False
-        return vehicle.get("gear") == "park" and (vehicle.get("speed_kph") or 0) <= 1.0
+        # speed_kph is untrusted wire input — coerce to a finite number (else 0.0) so a malformed
+        # bsw/vehicle can never raise inside the tick (see _finite_num).
+        speed = _finite_num(vehicle.get("speed_kph"))
+        return vehicle.get("gear") == "park" and (speed if speed is not None else 0.0) <= 1.0
 
     def _update_zone(self, zid, now_mono_ms, now_epoch_ms, vehicle, standby) -> dict:
         zone = self.cfg.zones[zid]
@@ -276,6 +321,9 @@ class FusionEngine:
         rt.stale_miss = 0
 
         present = [r for r in healthy if r.get("present") and r.get("range_m") is not None]
+        # Camera detections contribute object_class ONLY (phase-2 classifier). The engine ranges
+        # from ultrasonic `range_m`; a detection's `est_range_m` is deliberately NOT consumed, so
+        # ranging stays single-modality (load_config warns if a zone has no ranging sensor).
         object_class = next((r.get("object_class") for r in healthy if r.get("object_class")), None)
         eff_caution, eff_danger = self._effective_thresholds(zone, vehicle, object_class)
 

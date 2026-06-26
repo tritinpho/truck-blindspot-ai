@@ -190,6 +190,9 @@ class Sim:
         }
 
     def _detection(self, s: SensorGeom, o: Obj, ts: int) -> dict:
+        # est_range_m is emitted for contract-completeness (schemas/detection) and any future L4
+        # camera-ranging work, but the phase-1/2 fusion engine does NOT consume it — it reads only
+        # object_class from a detection and ranges from the co-located ultrasonic (engine._update_zone).
         return {
             "schema": "bsw.detection/1", "sensor_id": s.sensor_id, "ts": ts,
             "ts_kind": "epoch_ms", "object_class": o.cls, "confidence": 0.8,

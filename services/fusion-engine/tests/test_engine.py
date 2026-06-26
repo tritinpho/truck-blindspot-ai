@@ -3,8 +3,11 @@
 Pure-Python, no broker. Two layers: the instantaneous `zone_severity` (S1) and the stateful
 `FusionEngine` (S2 — debounce, confirm-by-range, hysteresis, local-arrival staleness, context).
 """
+import json
 import pathlib
 import sys
+
+import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
@@ -201,3 +204,51 @@ def test_clear_reading_without_range_is_kept():
     assert "right_mid" in eng.readings
     st = {s["zone_id"]: s for s in eng.tick(0.0, 0, None)}["RIGHT"]
     assert st["severity"] == SAFE
+
+
+def test_malformed_vehicle_speed_does_not_crash_tick():
+    """A malformed/spoofed bsw/vehicle (non-numeric speed_kph) must never crash the tick. The
+    shipped config enables park_standby, so gear="park" reaches the speed_kph arithmetic; before the
+    guard this raised TypeError on EVERY tick and stalled the whole zone stream until a valid vehicle
+    message arrived. Now the bad speed is treated as 0.0: the tick still produces zone states, and
+    park+(coerced-stationary) still resolves to standby (fail-safe, not fail-stop)."""
+    eng = make_engine()
+    eng.ingest(r(0.8), 0.0)  # a real RIGHT object in DANGER range — visuals must survive
+    for bad in ("fast", [1], {"x": 1}, None, float("nan"), float("inf"), True):
+        veh = {"schema": "bsw.vehicle/1", "ts": 0, "gear": "park", "speed_kph": bad}
+        st = {s["zone_id"]: s for s in eng.tick(0.0, 0, veh)}["RIGHT"]  # must not raise
+        assert st["severity"] in (DANGER, CAUTION, SAFE, UNKNOWN)
+        assert st["standby"] is True  # coerced to stationary → park-standby, never a crash
+
+
+def test_valid_vehicle_speed_still_gates_standby():
+    """The guard must not break the real path: a moving parked-gear vehicle (speed > 1) is NOT
+    standby, and a genuinely stationary one IS — speed_kph is still honoured when it's a number."""
+    eng = make_engine()
+    eng.ingest(r(2.5), 0.0)
+    moving = {s["zone_id"]: s for s in eng.tick(0.0, 0, {"gear": "park", "speed_kph": 5.0})}["RIGHT"]
+    assert moving["standby"] is False
+    parked = {s["zone_id"]: s for s in eng.tick(0.0, 0, {"gear": "park", "speed_kph": 0.0})}["RIGHT"]
+    assert parked["standby"] is True
+
+
+# ----------------------------------------------- camera coverage (phase-2 est_range_m gap, #4)
+
+def test_load_config_no_warning_for_shipped_config(recwarn):
+    """The example config sensors every zone with an ultrasonic, so it loads clean — the
+    camera-coverage warning is for camera-only zones only, not a blanket nag on every load."""
+    load_config(REPO / "config/zones.example.json", REPO / "config/sensors.example.json")
+    assert [str(w.message) for w in recwarn if "ranging sensor" in str(w.message)] == []
+
+
+def test_load_config_warns_on_camera_only_zone(tmp_path):
+    """A zone whose only enabled sensor is a camera has no range coverage (est_range_m is not
+    consumed; phase-2). load_config must warn so the latent gap surfaces, not ship silently."""
+    zones = tmp_path / "zones.json"
+    sensors = tmp_path / "sensors.json"
+    zones.write_text(json.dumps({"zones": [{"id": "RIGHT", "caution_m": 1.8, "danger_m": 1.0}]}),
+                     encoding="utf-8")
+    sensors.write_text(json.dumps({"sensors": [
+        {"id": "cam_right", "zone": "RIGHT", "modality": "camera"}]}), encoding="utf-8")
+    with pytest.warns(UserWarning, match="no enabled ranging sensor"):
+        load_config(zones, sensors)
