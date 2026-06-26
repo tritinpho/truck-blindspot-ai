@@ -9,7 +9,7 @@
 import { loadSceneConfig } from "./config";
 import { createState, isMuted, lastFusionReceipt, zoneStates } from "./store";
 import { evaluateLiveness } from "./liveness";
-import { audioTarget, isStandby, worstActiveZone, type AudioTarget } from "./select";
+import { activeZoneStates, audioTarget, isStandby, worstActiveZone, type AudioTarget } from "./select";
 import { Scene } from "./scene";
 import { AudioEngine } from "./audio";
 import { Bus } from "./bus";
@@ -25,6 +25,7 @@ const cfg = loadSceneConfig();
 initTheme(); // apply persisted/auto day-night theme before the first render (ADR-0009 vanilla TS)
 const state = createState(cfg.zones.map((z) => z.id));
 const zonePriorities = cfg.zones.map((z) => ({ id: z.id, risk_weight: z.risk_weight }));
+const configEnabled = new Map(cfg.zones.map((z) => [z.id, z.enabled]));
 
 const scene = new Scene(document.getElementById("scene") as HTMLCanvasElement, cfg);
 const audio = new AudioEngine();
@@ -74,12 +75,15 @@ function loop(): void {
   state.phase = liveness.phase;
 
   const states = zoneStates(state);
+  // Disabled zones (operator toggle or config) are greyed on the map; drop them here so they
+  // don't keep driving the ear/banner from their stale retained state (05 §5.5/§5.6).
+  const activeStates = activeZoneStates(states, state.localEnabled, configEnabled);
   const standby = isStandby(states.values());
   const muted = isMuted(state, now);
 
   // --- audio: single worst severity while monitoring; standby/mute → silent ---
   const target: AudioTarget =
-    liveness.phase === "MONITORING" ? audioTarget(states.values(), { standby, muted }) : "SILENT";
+    liveness.phase === "MONITORING" ? audioTarget(activeStates.values(), { standby, muted }) : "SILENT";
   audio.update(target, now);
 
   // --- fault chime: a zone going UNKNOWN under a healthy system, or the system going SIGNAL_LOST ---
@@ -87,7 +91,7 @@ function loop(): void {
     if (prevPhase === "MONITORING" && liveness.phase === "SIGNAL_LOST") {
       audio.chime(now); // whole-system fault (rate-limited internally)
     } else if (liveness.phase === "MONITORING") {
-      for (const [id, st] of states) {
+      for (const [id, st] of activeStates) {
         const prev = prevSeverity.get(id);
         if (prev && prev !== "UNKNOWN" && st.severity === "UNKNOWN") { audio.chime(now); break; }
       }
@@ -99,7 +103,7 @@ function loop(): void {
   // --- primary-alert banner: worst risk_weight × severity (05 §5.6) ---
   let banner: BannerVM | null = null;
   if (liveness.phase === "MONITORING") {
-    const worst = worstActiveZone(zonePriorities, states);
+    const worst = worstActiveZone(zonePriorities, activeStates);
     if (worst) {
       banner = {
         severity: worst.state.severity,

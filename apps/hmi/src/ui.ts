@@ -44,6 +44,14 @@ function el<T extends HTMLElement>(id: string): T {
   return e as T;
 }
 
+/** HTML-escape a wire-derived string before it goes into innerHTML. The broker is anonymous, so
+ * any node can publish a sensor_id / modality / health / reason; without this they would inject
+ * markup into the kiosk DOM (the diagnostics table is built with innerHTML). */
+function esc(v: unknown): string {
+  return String(v ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
 export class UI {
   private cfg: SceneConfig;
   private cb: UICallbacks;
@@ -304,9 +312,9 @@ export class UI {
       const color = st ? SEVERITY[st.severity].accent : THEME.textDim;
       const flags = [st?.stale ? "stale" : "", st?.standby ? "standby" : ""].filter(Boolean).join(" ");
       rows.push(
-        `<tr><td>${zoneName(z.id)}</td>` +
-        `<td style="color:${color}">${sev}${flags ? ` <em>${flags}</em>` : ""}</td>` +
-        `<td>${rng}</td><td>${age}</td><td>${present}</td><td>${st?.reason ?? ""}</td></tr>`,
+        `<tr><td>${esc(zoneName(z.id))}</td>` +
+        `<td style="color:${color}">${esc(sev)}${flags ? ` <em>${flags}</em>` : ""}</td>` +
+        `<td>${rng}</td><td>${age}</td><td>${present}</td><td>${esc(st?.reason ?? "")}</td></tr>`,
       );
     }
     // raw per-sensor feed (lazy-subscribed)
@@ -317,8 +325,8 @@ export class UI {
         const age = Math.round(nowMs - rec.receiptMono);
         const rng = r.range_m != null ? r.range_m.toFixed(2) : "—";
         rows.push(
-          `<tr><td>${id}</td><td>${r.modality ?? ""}</td><td>${rng}</td>` +
-          `<td>${age}</td><td>${r.present ? "✓" : ""}</td><td>${r.health ?? ""}</td></tr>`,
+          `<tr><td>${esc(id)}</td><td>${esc(r.modality ?? "")}</td><td>${rng}</td>` +
+          `<td>${age}</td><td>${r.present ? "✓" : ""}</td><td>${esc(r.health ?? "")}</td></tr>`,
         );
       }
     } else {

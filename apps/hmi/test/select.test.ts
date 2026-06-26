@@ -1,7 +1,7 @@
 // L2-equivalent for the priority/audio policy (05 §5.5/§5.6). Pure logic. Run: node --test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { activeRank, audioTarget, isStandby, worstActiveZone } from "../src/select.ts";
+import { activeRank, activeZoneStates, audioTarget, isStandby, worstActiveZone } from "../src/select.ts";
 import type { Severity, ZoneState } from "../src/types.ts";
 
 function zs(zone_id: string, severity: Severity, extra: Partial<ZoneState> = {}): ZoneState {
@@ -64,4 +64,24 @@ test("audioTarget is SILENT when nothing active, or when muted/standby", () => {
 test("isStandby true if any zone carries the standby flag", () => {
   assert.equal(isStandby([zs("LEFT", "CAUTION", { standby: true })]), true);
   assert.equal(isStandby([zs("LEFT", "CAUTION")]), false);
+});
+
+test("activeZoneStates drops disabled zones so they stop driving ear/banner", () => {
+  const states = new Map([
+    ["RIGHT", zs("RIGHT", "CAUTION")], // the only enabled active zone
+    ["LEFT", zs("LEFT", "DANGER")],    // operator switched off in settings
+    ["REAR", zs("REAR", "DANGER")],    // disabled in config
+  ]);
+  const local = new Map([["LEFT", false]]);
+  const config = new Map([["REAR", false]]);
+  const active = activeZoneStates(states, local, config);
+  assert.deepEqual([...active.keys()], ["RIGHT"]);
+  // the disabled DANGER zones (greyed on the map) must NOT escalate audio past the enabled CAUTION
+  assert.equal(audioTarget(active.values(), { standby: false, muted: false }), "CAUTION");
+  assert.equal(worstActiveZone(ZONES, active)?.id, "RIGHT");
+});
+
+test("activeZoneStates keeps zones absent from the override maps (default on)", () => {
+  const states = new Map([["RIGHT", zs("RIGHT", "DANGER")]]);
+  assert.equal(activeZoneStates(states, new Map(), new Map()).size, 1);
 });

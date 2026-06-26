@@ -42,6 +42,24 @@ export function worstActiveZone(
   return best;
 }
 
+/**
+ * Drop zones the operator switched off (settings toggle) or the config disabled, so the ear and
+ * banner agree with the map (scene.ts greys these out). A disabled zone keeps its last *retained*
+ * wire state in the store — without this filter it would keep beeping and owning the banner for a
+ * zone the driver is shown as off (alarm fatigue + inconsistency, 05 §5.5/§5.6).
+ */
+export function activeZoneStates(
+  states: Map<string, ZoneState>,
+  localEnabled: Map<string, boolean>,
+  configEnabled: Map<string, boolean>,
+): Map<string, ZoneState> {
+  const m = new Map<string, ZoneState>();
+  for (const [id, st] of states) {
+    if ((localEnabled.get(id) ?? true) && (configEnabled.get(id) ?? true)) m.set(id, st);
+  }
+  return m;
+}
+
 export type AudioTarget = "SILENT" | "CAUTION" | "DANGER";
 
 /**

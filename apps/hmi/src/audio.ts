@@ -115,7 +115,10 @@ export class AudioEngine {
 
   private gate(on: boolean): void {
     if (!this.beepGain || !this.ctx) return;
-    const peak = on ? this.volume * 0.6 : 0;
+    // masterGain already carries `volume`, so the gate is a fixed peak — beep loudness then scales
+    // LINEARLY with the volume slider, matching the chime (which is 0.5 through the same master).
+    // (Multiplying by volume here too would attenuate beeps quadratically.)
+    const peak = on ? 0.6 : 0;
     this.beepGain.gain.setTargetAtTime(peak, this.ctx.currentTime, 0.005);
   }
 }

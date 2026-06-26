@@ -89,9 +89,16 @@ def main() -> None:
     try:
         while True:
             tick = time.time()
-            states, _ = svc.collect_tick(mono_ms(), now_ms())
-            for st in states:
-                client.publish(f"bsw/zone/{st['zone_id']}", json.dumps(st), qos=0, retain=True)
+            # A tick must never kill the loop: a wedged fusion stops the zone stream, and the HMI
+            # freshness clock then degrades the map to UNKNOWN (ADR-0006) — a visible fault, not a
+            # frozen-green one. Readings are sanitized at ingest, but this guard is the backstop for
+            # any other unexpected input so the central safety service keeps running.
+            try:
+                states, _ = svc.collect_tick(mono_ms(), now_ms())
+                for st in states:
+                    client.publish(f"bsw/zone/{st['zone_id']}", json.dumps(st), qos=0, retain=True)
+            except Exception as e:  # noqa: BLE001 — last-resort liveness guard
+                print(f"[fusion] tick error (continuing): {e!r}")
             if tick - last_hb >= HEARTBEAT_S:
                 client.publish("bsw/health/fusion", health("ok", f"{svc.sensors_seen()} sensors seen"), qos=0)
                 last_hb = tick

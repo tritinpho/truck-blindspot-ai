@@ -12,6 +12,7 @@ to the published payload only.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -26,6 +27,14 @@ VRU_CLASSES = {"pedestrian", "cyclist", "motorbike"}
 
 def _step_down(sev: str) -> str:
     return CAUTION if sev == DANGER else SAFE
+
+
+def _valid_range(rng) -> bool:
+    """A usable range: a finite, non-negative real number. Rejects the wire shapes that would
+    otherwise reach `float()` in the tick — strings, lists, bools, NaN/Inf (json.loads accepts
+    `NaN`/`Infinity` by default), negatives."""
+    return (isinstance(rng, (int, float)) and not isinstance(rng, bool)
+            and math.isfinite(rng) and rng >= 0)
 
 
 def _zone_side(zone_id: str) -> str | None:
@@ -148,8 +157,19 @@ class FusionEngine:
 
     def ingest(self, reading: dict, arrival_mono_ms: float) -> None:
         sid = reading.get("sensor_id")
-        if sid in self.cfg.sensor_to_zone:
-            self.readings[sid] = (reading, arrival_mono_ms)
+        if sid not in self.cfg.sensor_to_zone:
+            return
+        # Sanitize at the trust boundary (anonymous broker): a malformed range_m must never reach
+        # float() in the tick (it would crash the whole engine), and a present-without-range reading
+        # must not be silently swallowed into SAFE. Both are dropped here, so the zone ages toward
+        # UNKNOWN (fail-loud, NFR-04) instead of crashing or faking "all clear". 04 §4.3.1 requires
+        # present=true to carry range_m; validate_message.contract_lint flags the same violations.
+        rng = reading.get("range_m")
+        if rng is not None and not _valid_range(rng):
+            return
+        if reading.get("present") and rng is None:
+            return
+        self.readings[sid] = (reading, arrival_mono_ms)
 
     # --- runtime reconfiguration (bsw/cmd, 04 §4.3.6 / 05 §5.8) ---
 

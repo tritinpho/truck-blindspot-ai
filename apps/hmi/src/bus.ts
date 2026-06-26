@@ -11,6 +11,12 @@ import type { AppState } from "./store";
 
 const DIAG_TOPICS = ["bsw/sensor/#", "bsw/detection/#"];
 
+// The only severities the renderer (theme.SEVERITY, scene.ts, select.ts) can key on. A zone
+// message carrying anything else — version skew, or a spoof on the anonymous broker — must be
+// dropped here: SEVERITY[severity] would otherwise be undefined and throw inside the rAF loop,
+// freezing the whole display (a frozen-green failure, the exact mode ADR-0006 exists to avoid).
+const VALID_SEVERITIES = new Set(["SAFE", "CAUTION", "DANGER", "UNKNOWN"]);
+
 export class Bus {
   private client: mqtt.MqttClient;
   private state: AppState;
@@ -40,7 +46,7 @@ export class Bus {
 
     if (parts[1] === "zone") {
       const z = data as ZoneState;
-      if (!z.zone_id || !z.severity) return;
+      if (!z.zone_id || !VALID_SEVERITIES.has(z.severity)) return;
       this.state.zones.set(z.zone_id, { state: z, receiptMono: now });
       this.state.lastZoneReceiptMono = now;
       this.state.sawFirstZone = true;

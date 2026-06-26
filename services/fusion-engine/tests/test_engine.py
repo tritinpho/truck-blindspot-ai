@@ -167,3 +167,37 @@ def test_standby_flag_when_parked_stationary():
     eng.ingest(r(2.5), 0.0)
     st = {s["zone_id"]: s for s in eng.tick(0.0, 0, {"gear": "park", "speed_kph": 0})}["RIGHT"]
     assert st["standby"] is True
+
+
+# ------------------------------------------------- trust boundary: malformed / contract-violating input
+
+def test_malformed_range_is_dropped_not_crashing():
+    """A wrong-typed range_m must never reach float() in the tick (it would crash the engine and,
+    on the anonymous broker, let any node down the central processor). Dropped at ingest."""
+    eng = make_engine()
+    for bad in ("abc", [1, 2], {"x": 1}, float("nan"), float("inf"), -1.0, True):
+        eng.ingest({"sensor_id": "right_mid", "present": True, "range_m": bad, "health": "ok"}, 0.0)
+        assert "right_mid" not in eng.readings  # rejected at the trust boundary
+    # the tick must not raise, and the zone stays fail-loud UNKNOWN (never crashed, never fake SAFE)
+    st = {s["zone_id"]: s for s in eng.tick(0.0, 0, None)}["RIGHT"]
+    assert st["severity"] == UNKNOWN
+
+
+def test_present_without_range_is_dropped_not_safe():
+    """present=true with no range_m is a contract violation (04 §4.3.1). It must not be swallowed
+    into SAFE — the zone ages to UNKNOWN (fail-loud), not a fake 'all clear'."""
+    eng = make_engine()
+    eng.ingest({"sensor_id": "right_mid", "present": True, "health": "ok"}, 0.0)  # no range_m
+    assert "right_mid" not in eng.readings
+    st = {s["zone_id"]: s for s in eng.tick(0.0, 0, None)}["RIGHT"]
+    assert st["severity"] == UNKNOWN
+
+
+def test_clear_reading_without_range_is_kept():
+    """The legitimate clear case — present=false, range_m null — must still be accepted (→ SAFE),
+    so the sanitizer doesn't over-reject."""
+    eng = make_engine()
+    eng.ingest({"sensor_id": "right_mid", "present": False, "range_m": None, "health": "ok"}, 0.0)
+    assert "right_mid" in eng.readings
+    st = {s["zone_id"]: s for s in eng.tick(0.0, 0, None)}["RIGHT"]
+    assert st["severity"] == SAFE
