@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 
 # zone -> the ultrasonic sensor that feeds it (mirrors config/sensors.example.json)
@@ -98,7 +99,11 @@ def main() -> None:
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     except (AttributeError, TypeError):
         client = mqtt.Client()
-    client.connect(args.host, args.port, 30)
+    try:
+        client.connect(args.host, args.port, 30)
+    except OSError as e:
+        print(f"[demo] broker unreachable at {args.host}:{args.port} ({e})", file=sys.stderr)
+        return
     client.loop_start()
 
     period = 1.0 / args.hz

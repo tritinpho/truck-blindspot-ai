@@ -2,6 +2,13 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
+    <!-- Defense-in-depth for a kiosk on the anonymous broker (docs/22): the app loads no remote code
+         and makes no remote fetches — only the MQTT WebSocket. 'unsafe-inline' is required for the
+         inline <style> block + the FOUC theme script + the diagnostics style="…" cells; injection of
+         <script> via innerHTML is already neutralized (esc() + i18n lookups), so this mainly blocks
+         remote script/exfiltration and object/base hijack. ws:/wss: is open because the broker host
+         is configurable (VITE_BROKER_WS). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; object-src 'none'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>BSW — Cảnh báo điểm mù</title>
     <style>

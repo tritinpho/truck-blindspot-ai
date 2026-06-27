@@ -41,7 +41,13 @@ def summarize_events(events: list[dict]) -> dict:
     """Recompute metrics from `bsw` zone-transition events (the eventlog JSONL rows).
 
     Each event: {ts, zone_id, from, to, nearest_range_m, reason}. Deterministic, so a recorded
-    run replays to identical numbers for the report (11 §11.6)."""
+    run replays to identical numbers for the report (11 §11.6).
+
+    NOTE on `per_zone[...]["transitions"]`: this is the count of *logged rows* for the zone, which
+    includes the zone's initial adoption row (from="-", written once per zone by service.py). It is
+    therefore == that zone's share of `total["events"]`, NOT the number of state→state changes
+    (which is one fewer per zone). `to_danger` / `to_unknown` count rows by destination and the
+    boot adoption to UNKNOWN is intentionally included there (NFR-12 warm-up, see docs/21)."""
     per_zone: dict[str, dict] = {}
     seq: dict[str, list[dict]] = {}
     for e in events:

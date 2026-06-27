@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import sys
 import time
 
 
@@ -31,7 +32,11 @@ def main() -> None:
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     except (AttributeError, TypeError):
         client = mqtt.Client()
-    client.connect(args.host, args.port, 30)
+    try:
+        client.connect(args.host, args.port, 30)
+    except OSError as e:
+        print(f"[sim] broker unreachable at {args.host}:{args.port} ({e})", file=sys.stderr)
+        return
     client.loop_start()
 
     down = [round(x / 10, 2) for x in range(30, 4, -1)]  # 3.0 .. 0.5

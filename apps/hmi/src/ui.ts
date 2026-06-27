@@ -328,7 +328,9 @@ export class UI {
       for (const [id, rec] of this.state.sensors) {
         const r = rec.reading;
         const age = Math.round(nowMs - rec.receiptMono);
-        const rng = r.range_m != null ? r.range_m.toFixed(2) : "—";
+        // raw bsw/sensor/# is NOT validated by isRenderableZone (only zone messages are), so a
+        // spoofed/skewed string range_m would throw on .toFixed() and blank the table each frame.
+        const rng = typeof r.range_m === "number" && Number.isFinite(r.range_m) ? r.range_m.toFixed(2) : "—";
         rows.push(
           `<tr><td>${esc(id)}</td><td>${esc(r.modality ?? "")}</td><td>${rng}</td>` +
           `<td>${age}</td><td>${r.present ? "✓" : ""}</td><td>${esc(r.health ?? "")}</td></tr>`,

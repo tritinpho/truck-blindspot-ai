@@ -187,7 +187,7 @@ def main() -> int:
     ap.add_argument("capture", nargs="?", default="-",
                     help="file with captured message(s), or '-' for stdin (default)")
     ap.add_argument("--schema-dir", type=Path, default=DEFAULT_SCHEMA_DIR,
-                    help="directory of frozen *.schema.json (default: repo schemas/)")
+                    help="directory of frozen schema *.json (default: repo schemas/)")
     ap.add_argument("--strict", action="store_true",
                     help="treat contract-convention warnings as failures (exit 1)")
     args = ap.parse_args()
@@ -197,7 +197,14 @@ def main() -> int:
         print(f"[validate] no schemas found in {args.schema_dir}", file=sys.stderr)
         return 2
 
-    text = sys.stdin.read() if args.capture == "-" else Path(args.capture).read_text(encoding="utf-8")
+    if args.capture == "-":
+        text = sys.stdin.read()
+    else:
+        try:
+            text = Path(args.capture).read_text(encoding="utf-8")
+        except OSError as e:  # missing file / not readable — clean exit, not a traceback
+            print(f"[validate] cannot read {args.capture}: {e}", file=sys.stderr)
+            return 2
     try:
         messages = iter_captured(text)
     except ValueError as e:

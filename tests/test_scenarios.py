@@ -16,6 +16,7 @@ import pytest
 
 import sim
 from sim import by_id, run
+from sim.metrics import summarize_events
 
 
 # -------------------------------------------------------------- S1-S6 operational scenarios
@@ -75,9 +76,13 @@ def test_TC_F1_sensor_unplugged_goes_unknown():
 
 def test_TC_F2_boundary_jitter_debounce_holds():
     tl = run(by_id()["F2"])
-    # naive thresholding at danger_m ± noise would chatter; debounce keeps it ≈ flat.
-    assert tl.transitions("RIGHT") <= 3
-    assert tl.final("RIGHT") != "UNKNOWN"
+    # naive thresholding at danger_m ± noise would chatter; debounce keeps it flat. The real
+    # anti-chatter property is ZERO flicker (no A→B→A reversals); RIGHT makes exactly one ascending
+    # CAUTION→DANGER step and holds. The old `<= 3` bound would have passed through a partial
+    # debounce regression — assert the actual shape instead.
+    assert summarize_events(tl.transition_events())["total"]["flicker"] == 0
+    assert tl.transitions("RIGHT") <= 1
+    assert tl.final("RIGHT") == "DANGER"
 
 
 @pytest.mark.parametrize("cls,expected", [("pedestrian", "DANGER"), ("vehicle", "CAUTION")])

@@ -76,10 +76,18 @@ def main() -> None:
         client = mqtt.Client()
     client.on_connect = on_connect
     client.on_message = on_message
-    client.connect(args.host, args.port, 30)
+    try:
+        client.connect(args.host, args.port, 30)
+    except OSError as e:
+        print(f"[latency] broker unreachable at {args.host}:{args.port} ({e})", file=sys.stderr)
+        return
     try:
         client.loop_forever()
     except KeyboardInterrupt:
+        pass
+    finally:
+        # print the summary + disconnect on ANY exit (Ctrl-C OR a dropped connection), not only on
+        # KeyboardInterrupt — otherwise loop_forever() returning would leak the socket silently.
         s = pairer.summary()
         print("\n[latency] danger-path end-to-end (single observer clock):")
         if s["n"] == 0:

@@ -91,13 +91,23 @@ def load_config(zones_path: Path, sensors_path: Path) -> Config:
 
     zones: dict[str, ZoneCfg] = {}
     for z in zc["zones"]:
-        zones[z["id"]] = ZoneCfg(
+        zcfg = ZoneCfg(
             zone_id=z["id"],
             enabled=z.get("enabled", True),
             caution_m=float(z.get("caution_m", d.get("caution_m", 1.5))),
             danger_m=float(z.get("danger_m", d.get("danger_m", 0.8))),
             risk_weight=float(z.get("risk_weight", 1.0)),
         )
+        # Safety invariant (05 §5.2): danger_m is the INNER threshold, so it must stay <= caution_m.
+        # An inverted pair makes a mid-range object read DANGER where it should read CAUTION (systemic
+        # over-warning → alarm fatigue). apply_cmd(set_threshold) already rejects this at runtime; fail
+        # loud at load too (NFR-07) so a hand-edited / reload_config'd config can't ship the inversion
+        # silently. _reload() catches this ValueError and keeps the last-good config (fail-safe).
+        if zcfg.danger_m > zcfg.caution_m:
+            raise ValueError(
+                f"zone {zcfg.zone_id!r}: danger_m ({zcfg.danger_m:g}) must be <= "
+                f"caution_m ({zcfg.caution_m:g}) — danger is the inner threshold (05 §5.2)")
+        zones[zcfg.zone_id] = zcfg
 
     sensor_to_zone: dict[str, str] = {}
     zone_to_sensors: dict[str, list[str]] = {zid: [] for zid in zones}

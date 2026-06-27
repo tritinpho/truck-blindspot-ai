@@ -7,5 +7,6 @@
   "nearest_range_m": 0.82,
   "source": "fusion",
   "reason": "range<0.9 & turn_signal=right",
-  "stale": false
+  "stale": false,
+  "standby": false
 }

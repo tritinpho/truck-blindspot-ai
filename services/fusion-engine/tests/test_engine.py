@@ -252,3 +252,18 @@ def test_load_config_warns_on_camera_only_zone(tmp_path):
         {"id": "cam_right", "zone": "RIGHT", "modality": "camera"}]}), encoding="utf-8")
     with pytest.warns(UserWarning, match="no enabled ranging sensor"):
         load_config(zones, sensors)
+
+
+def test_load_config_rejects_inverted_bands(tmp_path):
+    """danger_m is the inner threshold and must stay <= caution_m. apply_cmd(set_threshold) rejects
+    an inverted pair at runtime (test_commands); load_config must reject it at load too (NFR-07) so a
+    hand-edited / reload_config'd config can't silently invert a safety zone — DANGER where the driver
+    should see CAUTION (over-warning → alarm fatigue)."""
+    zones = tmp_path / "zones.json"
+    sensors = tmp_path / "sensors.json"
+    zones.write_text(json.dumps({"zones": [
+        {"id": "RIGHT", "enabled": True, "caution_m": 1.0, "danger_m": 2.0}]}), encoding="utf-8")
+    sensors.write_text(json.dumps({"sensors": [
+        {"id": "right_mid", "zone": "RIGHT", "modality": "ultrasonic"}]}), encoding="utf-8")
+    with pytest.raises(ValueError, match="danger_m"):
+        load_config(zones, sensors)

@@ -133,19 +133,23 @@ def canonical_run(log_dir: Path) -> list[dict]:
         (log_dir / name).unlink(missing_ok=True)
 
     log = EventLog(log_dir)
-    base = 0
-    for sc in sim.scenarios():
-        sim_obj, cfg = sim.build(enable_camera=sc.enable_camera)
-        svc = FusionService(cfg, log=log)
-        rng = Random(sc.seed)
-        n = sc.duration_ms // DT_MS
-        for tick in range(n + 1):
-            t = base + tick * DT_MS
-            for topic, payload in sim.scenario_tick_messages(sim_obj, sc, tick, DT_MS, ts=t, rng=rng):
-                svc.handle_message(topic, json.dumps(payload).encode(), float(t), t)
-            svc.collect_tick(float(t), t)
-        base += sc.duration_ms + GAP_MS
-    log.close()
+    try:
+        base = 0
+        for sc in sim.scenarios():
+            sim_obj, cfg = sim.build(enable_camera=sc.enable_camera)
+            svc = FusionService(cfg, log=log)
+            rng = Random(sc.seed)
+            n = sc.duration_ms // DT_MS
+            for tick in range(n + 1):
+                t = base + tick * DT_MS
+                for topic, payload in sim.scenario_tick_messages(sim_obj, sc, tick, DT_MS, ts=t, rng=rng):
+                    svc.handle_message(topic, json.dumps(payload).encode(), float(t), t)
+                svc.collect_tick(float(t), t)
+            base += sc.duration_ms + GAP_MS
+    finally:
+        # close even if a scenario raises mid-run, else the leaked events.db/.jsonl handles lock the
+        # dir on Windows and the --no-log TemporaryDirectory cleanup fails, masking the real error.
+        log.close()
     return [json.loads(line) for line in
             (log_dir / "events.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
 

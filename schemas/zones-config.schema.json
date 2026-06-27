@@ -22,7 +22,7 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "enabled"],
+        "required": ["id"],
         "additionalProperties": false,
         "properties": {
           "$comment": { "type": "string" },

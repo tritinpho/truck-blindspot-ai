@@ -20,7 +20,7 @@ first:
 | 1 | **Command injection** | `bsw/cmd/fusion` | `disable_zone RIGHT` silently turns off the deadliest zone (VN right-turn squeeze); `set_threshold` can blind a zone (tiny danger_m) or over-sensitize it (alarm fatigue). Highest leverage. |
 | 2 | **Sensor spoof — fake clear** | `bsw/sensor/{id}` | `present:false` for a zone that actually has an object → fusion reads SAFE while a motorbike is there. Silent, dangerous. |
 | 3 | **Health / LWT spoof** | `bsw/health/fusion` | `status:"fault"` forces the HMI to SIGNAL_LOST (whole map UNKNOWN). Fail-safe, but a denial of the advisory function (nuisance DoS). |
-| 4 | **Retained zone spoof** | `bsw/zone/{id}` | Inject an attacker-controlled severity to the HMI. Fusion republishes retained at 10 Hz so a live spoof is transient, but a retained message on a zone fusion is **not** currently publishing can persist on the broker. |
+| 4 | **Retained zone spoof** | `bsw/zone/{id}` | Inject an attacker-controlled severity **or the `standby` flag** to the HMI: a spoofed `severity:"SAFE"` fakes all-clear, and a spoofed `standby:true` suppresses the audio alert on **every** zone (visuals stay). Fusion republishes retained at 10 Hz so a live spoof is transient, but a retained message on a zone fusion is **not** currently publishing can persist on the broker. |
 | 5 | **Malformed input** | any | A wrong-typed field crashing a consumer. **Already hardened in code** (sensor `range_m`, vehicle `speed_kph`, HMI `severity`/`nearest_range_m`) — see `engine.py`, `service.py`, `apps/hmi/src/validate.ts`. Keep it: it is defense-in-depth, necessary even with auth. |
 
 The code-level trust-boundary hardening addresses #5. **Auth + ACLs are what close #1–#4** — input
