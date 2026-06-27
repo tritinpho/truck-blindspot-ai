@@ -15,6 +15,29 @@ task, 12 months, ~20,000,000 VND).
 
 ---
 
+## 🇻🇳 Cho các nhóm (Tiếng Việt) — bắt đầu ở đây
+
+Đây là phần **phần mềm** của hệ thống cảnh báo điểm mù cho xe tải: cảm biến quanh xe →
+bộ xử lý trung tâm (Raspberry Pi) → màn hình trong cabin báo vùng nguy hiểm bằng **màu** và **âm thanh**.
+
+Hướng dẫn cho từng nhóm được viết bằng **tiếng Việt** — tìm đúng nhóm của bạn rồi đọc theo:
+
+| Bạn thuộc nhóm | Đọc trước | Để làm gì |
+|----------------|-----------|-----------|
+| **Mới vào / tất cả** | [docs/23](docs/23-ban-giao-tich-hop.md) | Các nhóm cần thống nhất gì — biến dùng chung + việc cần chốt |
+| **Phần cứng · Firmware (W)** | [docs/26](docs/26-firmware-bat-dau-nhanh.md) → [docs/24](docs/24-huong-dan-lap-dat-phan-cung.md) | Viết firmware ESP32, rồi lắp đặt phần cứng |
+| **Đánh giá · Báo cáo (R)** | [docs/25](docs/25-huong-dan-danh-gia.md) | Chạy kịch bản, lấy số liệu, đánh giá người dùng |
+
+**Hợp đồng kỹ thuật giữ nguyên tiếng Anh và đã "đóng băng"** — các hướng dẫn trên chỉ trỏ tới,
+không chép lại: [docs/20](docs/20-firmware-contract-checklist.md) (firmware) ·
+[docs/04](docs/04-message-protocol.md) + [`schemas/`](schemas/) (giao thức tin nhắn) ·
+[docs/11](docs/11-evaluation-plan.md) (kế hoạch đánh giá).
+
+**Muốn chạy thử ngay?** Xem [Run the full pipeline](#run-the-full-pipeline-m3-demo) ở dưới (cần Docker),
+hoặc run book [docs/17](docs/17-demo-and-run.md).
+
+---
+
 ## Why this exists
 
 Large trucks have wide blind-spot zones at the front, both sides, and rear. In dense
@@ -61,6 +84,13 @@ model is finished. See [ADR-0005](docs/adr/ADR-0005-sim-real-parity.md).
 | [`docs/17-demo-and-run.md`](docs/17-demo-and-run.md) | Run book: one-command bring-up, the demos, reproducible logs, latency |
 | [`docs/18-m3-summary.md`](docs/18-m3-summary.md) | M3 summary ⭐ — exit-criteria evidence, scenario coverage, CI approach |
 | [`docs/19-tuning-and-operating-point.md`](docs/19-tuning-and-operating-point.md) | S6 tuning: the debounce sweep, the sensitivity/false-alarm trade-off, the chosen defaults |
+| [`docs/20-firmware-contract-checklist.md`](docs/20-firmware-contract-checklist.md) | Firmware contract + conformance checklist (W track / G4) |
+| [`docs/21-evaluation-report-inputs.md`](docs/21-evaluation-report-inputs.md) | Report-ready evidence package (Nội dung 6): metric/FR/NFR status |
+| [`docs/22-security-hardening-pilot.md`](docs/22-security-hardening-pilot.md) | Broker security threat model + pilot hardening checklist |
+| [`docs/23-ban-giao-tich-hop.md`](docs/23-ban-giao-tich-hop.md) | 🇻🇳 Phối hợp giữa các nhóm (cross-team integration handoff) |
+| [`docs/24-huong-dan-lap-dat-phan-cung.md`](docs/24-huong-dan-lap-dat-phan-cung.md) | 🇻🇳 Lắp đặt phần cứng & chạy thử (hardware setup, W track) |
+| [`docs/25-huong-dan-danh-gia.md`](docs/25-huong-dan-danh-gia.md) | 🇻🇳 Đánh giá & chạy kịch bản (evaluation/run guide, R track) |
+| [`docs/26-firmware-bat-dau-nhanh.md`](docs/26-firmware-bat-dau-nhanh.md) | 🇻🇳 Firmware ESP32 bắt đầu nhanh (firmware quick-start, W track) |
 | [`docs/adr/`](docs/adr/) | Architecture Decision Records |
 | [`config/`](config/) | Example zone & sensor configuration |
 | [`schemas/`](schemas/) | JSON Schemas for the message contracts |
