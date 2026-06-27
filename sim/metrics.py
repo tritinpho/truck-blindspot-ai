@@ -7,9 +7,25 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 FLICKER_MS = 1000  # a severity reversal (A→B→A) within this window counts as flicker (FR-09)
+
+
+def percentile(sorted_vals: list[float], pct: float) -> float:
+    """Linear-interpolated percentile (the numpy default) over an already-SORTED list; pct in 0..100.
+    Unbiased for even n — unlike `v[len(v)//2]`, which returns the UPPER of the two middle values
+    (e.g. the max for n=2) and so reports a biased 'median' for the NFR-01 latency figures."""
+    if not sorted_vals:
+        raise ValueError("percentile of empty sequence")
+    if len(sorted_vals) == 1:
+        return float(sorted_vals[0])
+    k = (len(sorted_vals) - 1) * (pct / 100.0)
+    lo, hi = math.floor(k), math.ceil(k)
+    if lo == hi:
+        return float(sorted_vals[lo])
+    return sorted_vals[lo] * (hi - k) + sorted_vals[hi] * (k - lo)
 
 
 def danger_latency_ms(ts: list[int], rng: list[float | None], sev: list[str],
@@ -131,4 +147,5 @@ class LatencyPairer:
         if not v:
             return {"n": 0}
         return {"n": len(v), "min": v[0], "max": v[-1],
-                "mean": round(sum(v) / len(v), 1), "p50": v[len(v) // 2]}
+                "mean": round(sum(v) / len(v), 1),
+                "p50": round(percentile(v, 50), 1), "p95": round(percentile(v, 95), 1)}

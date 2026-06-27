@@ -1,7 +1,9 @@
 // L2-equivalent for the priority/audio policy (05 §5.5/§5.6). Pure logic. Run: node --test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { activeRank, activeZoneStates, audioTarget, isStandby, worstActiveZone } from "../src/select.ts";
+import {
+  activeRank, activeZoneStates, audioTarget, isStandby, liveZonePriorities, worstActiveZone,
+} from "../src/select.ts";
 import type { Severity, ZoneState } from "../src/types.ts";
 
 function zs(zone_id: string, severity: Severity, extra: Partial<ZoneState> = {}): ZoneState {
@@ -26,6 +28,35 @@ test("worstActiveZone follows risk_weight × severity (05 §5.6)", () => {
   // LEFT DANGER (1.1×2=2.2) beats RIGHT CAUTION (1.8×1=1.8)
   const states = new Map([["RIGHT", zs("RIGHT", "CAUTION")], ["LEFT", zs("LEFT", "DANGER")]]);
   assert.equal(worstActiveZone(ZONES, states)?.id, "LEFT");
+});
+
+test("liveZonePriorities takes the live wire risk_weight, falls back to config otherwise", () => {
+  const cfg = new Map([["RIGHT", 1.8], ["LEFT", 1.1]]);
+  const states = new Map([
+    ["RIGHT", zs("RIGHT", "DANGER", { risk_weight: 0.5 })], // live override wins
+    ["LEFT", zs("LEFT", "CAUTION")],                        // no wire value → config fallback
+  ]);
+  const pri = new Map(liveZonePriorities(cfg, states).map((p) => [p.id, p.risk_weight]));
+  assert.equal(pri.get("RIGHT"), 0.5);
+  assert.equal(pri.get("LEFT"), 1.1);
+});
+
+test("liveZonePriorities ignores a spoofed/garbled risk_weight (anonymous broker)", () => {
+  const cfg = new Map([["RIGHT", 1.8]]);
+  for (const bad of ["9", NaN, Infinity, -1, 0, null]) {
+    const states = new Map([["RIGHT", zs("RIGHT", "DANGER", { risk_weight: bad as unknown as number })]]);
+    assert.equal(liveZonePriorities(cfg, states)[0].risk_weight, 1.8, `bad=${String(bad)} → fallback`);
+  }
+});
+
+test("a live risk_weight retune re-prioritizes the banner (05 §5.6)", () => {
+  const cfg = new Map([["RIGHT", 1.8], ["LEFT", 1.1]]);
+  // both CAUTION → by config RIGHT (1.8) owns the banner; a runtime retune lifts LEFT to 3.0 → LEFT wins
+  const states = new Map([
+    ["RIGHT", zs("RIGHT", "CAUTION")],
+    ["LEFT", zs("LEFT", "CAUTION", { risk_weight: 3.0 })],
+  ]);
+  assert.equal(worstActiveZone(liveZonePriorities(cfg, states), states)?.id, "LEFT");
 });
 
 test("worstActiveZone breaks ties toward the higher raw severity", () => {

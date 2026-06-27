@@ -51,6 +51,10 @@ def point_in_poly(x: float, y: float, poly: list[list[float]]) -> bool:
     for i in range(n):
         xi, yi = poly[i]
         xj, yj = poly[j]
+        # The half-open `(yi > y) != (yj > y)` test is what makes the divide below safe: it is true
+        # only when the edge straddles the ray, which forces yi != yj — a perfectly horizontal edge
+        # (yi == yj) can never enter the branch, so (yj - yi) is never zero. (Invariant: if this
+        # predicate ever changes to a closed `>=`, guard the division with `yj != yi`.)
         if (yi > y) != (yj > y):
             x_cross = (xj - xi) * (y - yi) / (yj - yi) + xi
             if x < x_cross:
@@ -115,7 +119,19 @@ class Sim:
                     include_disabled: bool = False) -> "Sim":
         zc = json.loads(Path(zones_path).read_text(encoding="utf-8"))
         sc = json.loads(Path(sensors_path).read_text(encoding="utf-8"))
-        zones = {z["id"]: z["polygon_norm"] for z in zc["zones"]}
+        # Fail loud on a degenerate polygon: a <3-vertex ring makes dist_to_poly/nearest_point_on_poly
+        # raise an opaque min()/IndexError deep in the geometry. (The zones-config schema also enforces
+        # minItems:3, but from_config bypasses schema validation, so guard here too.)
+        zones = {}
+        for z in zc["zones"]:
+            poly = z.get("polygon_norm")
+            if not isinstance(poly, list) or len(poly) < 3:
+                raise ValueError(f"zone {z.get('id')!r}: polygon_norm needs >= 3 vertices, got "
+                                 f"{len(poly) if isinstance(poly, list) else type(poly).__name__}")
+            zones[z["id"]] = poly
+        truck_outline = zc["truck_outline_norm"]
+        if not isinstance(truck_outline, list) or len(truck_outline) < 3:
+            raise ValueError("truck_outline_norm needs >= 3 vertices")
         sensors = []
         for s in sc["sensors"]:
             if "id" not in s:
@@ -126,7 +142,7 @@ class Sim:
                 sensor_id=s["id"], zone=s["zone"], modality=s.get("modality", "ultrasonic"),
                 max_range_m=float(s.get("max_range_m", 4.0)), fire_group=int(s.get("fire_group", 0)),
             ))
-        return cls(zones, zc["truck_outline_norm"], sensors, truck_width_m)
+        return cls(zones, truck_outline, sensors, truck_width_m)
 
     # --- forward: position → zone + range ---
 

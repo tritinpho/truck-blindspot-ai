@@ -9,7 +9,9 @@
 import { loadSceneConfig } from "./config";
 import { createState, isMuted, lastFusionReceipt, zoneStates } from "./store";
 import { evaluateLiveness } from "./liveness";
-import { activeZoneStates, audioTarget, isStandby, worstActiveZone, type AudioTarget } from "./select";
+import {
+  activeZoneStates, audioTarget, isStandby, liveZonePriorities, worstActiveZone, type AudioTarget,
+} from "./select";
 import { Scene } from "./scene";
 import { AudioEngine } from "./audio";
 import { Bus } from "./bus";
@@ -24,7 +26,9 @@ const MUTE_MS = 60_000; // timed mute (never hides visuals)
 const cfg = loadSceneConfig();
 initTheme(); // apply persisted/auto day-night theme before the first render (ADR-0009 vanilla TS)
 const state = createState(cfg.zones.map((z) => z.id));
-const zonePriorities = cfg.zones.map((z) => ({ id: z.id, risk_weight: z.risk_weight }));
+// Build-time risk_weight per zone — the fallback when fusion hasn't (yet) sent a live one. The
+// live banner/ear priority is recomputed each frame from the wire risk_weight (liveZonePriorities).
+const configRiskWeight = new Map(cfg.zones.map((z) => [z.id, z.risk_weight]));
 const configEnabled = new Map(cfg.zones.map((z) => [z.id, z.enabled]));
 
 const scene = new Scene(document.getElementById("scene") as HTMLCanvasElement, cfg);
@@ -45,8 +49,8 @@ const callbacks: UICallbacks = {
     audio.ensure(); // a view switch is a user gesture — unlock audio
     if (v === "drive") scene.fit();
   },
-  setThreshold(zoneId, caution_m, danger_m) {
-    bus.publishCmd("set_threshold", { zone_id: zoneId, caution_m, danger_m });
+  setThreshold(zoneId, caution_m, danger_m, risk_weight) {
+    bus.publishCmd("set_threshold", { zone_id: zoneId, caution_m, danger_m, risk_weight });
   },
   setZoneEnabled(zoneId, enabled) {
     state.localEnabled.set(zoneId, enabled);
@@ -114,7 +118,8 @@ function renderFrame(): void {
   // --- primary-alert banner: worst risk_weight × severity (05 §5.6) ---
   let banner: BannerVM | null = null;
   if (liveness.phase === "MONITORING") {
-    const worst = worstActiveZone(zonePriorities, activeStates);
+    // Priority follows the LIVE wire risk_weight (a runtime set_threshold can retune it), config fallback.
+    const worst = worstActiveZone(liveZonePriorities(configRiskWeight, states), activeStates);
     if (worst) {
       banner = {
         severity: worst.state.severity,

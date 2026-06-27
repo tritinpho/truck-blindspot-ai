@@ -94,6 +94,7 @@ Honor these and any component can be built independently.
   "severity": "DANGER",
   "object_class": "motorbike",
   "nearest_range_m": 0.82,
+  "risk_weight": 1.8,
   "source": "fusion",
   "reason": "range<0.9 & turn_signal=right",
   "stale": false,
@@ -101,6 +102,7 @@ Honor these and any component can be built independently.
 }
 ```
 - `severity ∈ { SAFE, CAUTION, DANGER, UNKNOWN }`.
+- `risk_weight`: the HMI prioritization weight for this zone (05 §5.6) — the banner + audio follow the highest `risk_weight × severity`. Fusion emits it every tick (from config, live-tunable via `set_threshold`), so retuning priority at runtime re-prioritizes the live HMI without a rebuild. The HMI falls back to its build-time config weight if absent.
 - `stale=true` + `severity=UNKNOWN` when the contributing sensor(s) went silent (NFR-04).
 - `standby`: park-standby (05 §5.4) — visuals kept, audio nagging suppressed. Fusion sets it on **every** zone each tick; the HMI keys audio suppression off it. Load-bearing for the HMI, so build a zone-state consumer expecting it.
 - `reason`: human-readable trace for debugging/demos (observability, NFR-11).
@@ -115,7 +117,7 @@ Honor these and any component can be built independently.
   "detail": "12 sensors active, 0 stale"
 }
 ```
-Each component publishes every ~1 s. Missing heartbeats surface as faults. Components **should** register an MQTT **Last-Will** on `bsw/health/{component}` (`status: "fault"`) so the broker announces an ungraceful disconnect immediately, rather than waiting out the freshness window ([ADR-0006](adr/ADR-0006-fail-loud-compute-liveness.md)).
+Each component publishes every ~1 s. Missing heartbeats surface as faults. Components **should** register an MQTT **Last-Will** on `bsw/health/{component}` (`status: "fault"`) so the broker announces an ungraceful disconnect immediately, rather than waiting out the freshness window ([ADR-0006](adr/ADR-0006-fail-loud-compute-liveness.md)). The heartbeat **and** the Last-Will are **retained**, so `bsw/health/{component}` always holds the component's current status: because `bsw/zone/#` is retained and a consumer stamps freshness from its **own** arrival time, a late-joining HMI would otherwise receive a fresh-stamped zone snapshot from a **dead** fusion and read `MONITORING` for a whole freshness window. A retained `fault` (LWT for an ungraceful death; an explicit retained `fault` published on graceful shutdown) lets the consumer latch the fault on connect and fail loud at once.
 
 ### 4.3.6 Command — `bsw/cmd/{target}` (QoS 1)
 ```json

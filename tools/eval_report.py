@@ -37,7 +37,7 @@ sys.path.insert(0, str(REPO / "services" / "fusion-engine"))
 import sim  # noqa: E402
 from fusion.eventlog import EventLog  # noqa: E402
 from fusion.service import FusionService  # noqa: E402
-from sim.metrics import danger_latency_ms, summarize_events  # noqa: E402
+from sim.metrics import danger_latency_ms, percentile, summarize_events  # noqa: E402
 
 DT_MS = 100
 MASTER_HZ = 1000 // DT_MS        # 10 Hz master tick
@@ -97,8 +97,11 @@ def latency_rows() -> tuple[list[dict], dict]:
     measured.sort()
     summ = {"n": len(measured)}
     if measured:
-        summ |= {"min": measured[0], "p50": measured[len(measured) // 2], "max": measured[-1],
-                 "est_real_p50": measured[len(measured) // 2] + PHYSICAL_PATH_MS}
+        # unbiased interpolated p50 + a p95 TAIL — the latency requirement (NFR-01) is about the
+        # worst approach, so report the tail, not just a biased upper-median (sim/metrics.percentile).
+        p50, p95 = round(percentile(measured, 50), 1), round(percentile(measured, 95), 1)
+        summ |= {"min": measured[0], "p50": p50, "p95": p95, "max": measured[-1],
+                 "est_real_p50": p50 + PHYSICAL_PATH_MS, "est_real_p95": p95 + PHYSICAL_PATH_MS}
     return rows, summ
 
 
@@ -161,7 +164,8 @@ def metric_status(replay: dict, gfire: list[dict], lat_summ: dict) -> list[dict]
     spliced in where the sim produces it; headline figures are flagged NEEDS-L4."""
     total = replay["total"]
     us_hz = sorted({r["hz"] for r in gfire})
-    lat_txt = (f"sim p50 {lat_summ.get('p50','?')} ms → est-real ~{lat_summ.get('est_real_p50','?')} ms"
+    lat_txt = (f"sim p50 {lat_summ.get('p50','?')} / p95 {lat_summ.get('p95','?')} ms → est-real p95 "
+               f"~{lat_summ.get('est_real_p95','?')} ms"
                if lat_summ.get("n") else "no clean approach crossing")
     return [
         {"metric": "Detection rate", "target": "≥ 95%",
@@ -270,7 +274,7 @@ def render_markdown(report: dict) -> str:
          for r in report["latency"]["rows"]]))
     if s.get("n"):
         L.append(f"\n\n_n={s['n']} clean approach crossing(s) · min {s['min']} · p50 {s['p50']} · "
-                 f"max {s['max']} ms (sim) → est-real p50 ~{s['est_real_p50']} ms; "
+                 f"p95 {s['p95']} · max {s['max']} ms (sim) → est-real p95 ~{s['est_real_p95']} ms; "
                  f"NFR-01 danger-path ≤ 200 ms. Only un-boosted approaches yield a latency "
                  f"(context-boosted S2–S6 warn before the crossing), so n is small by construction "
                  f"— indicative, not a distribution and not headline._")

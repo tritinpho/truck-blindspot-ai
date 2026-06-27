@@ -14,6 +14,7 @@
     "severity": { "enum": ["SAFE", "CAUTION", "DANGER", "UNKNOWN"] },
     "object_class": { "enum": ["pedestrian", "cyclist", "motorbike", "vehicle", "unknown", null] },
     "nearest_range_m": { "type": ["number", "null"], "minimum": 0 },
+    "risk_weight": { "type": "number", "minimum": 0, "description": "HMI prioritization weight (05 §5.6): banner/ear follow max(risk_weight × severity). Emitted per tick so a runtime set_threshold(risk_weight) re-prioritizes the live display." },
     "source": { "type": "string", "description": "e.g. fusion" },
     "reason": { "type": "string", "description": "human-readable trace for debugging/demos" },
     "stale": { "type": "boolean", "description": "true when contributing sensors went silent (with severity=UNKNOWN)" },

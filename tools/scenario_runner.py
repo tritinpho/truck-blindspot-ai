@@ -30,7 +30,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")  # portable glyphs on the Windows cp1252 console
 
 import sim  # noqa: E402
-from sim.metrics import danger_latency_ms  # noqa: E402
+from sim.metrics import danger_latency_ms, percentile  # noqa: E402
 from sim.runner import build, scenario_tick_messages  # noqa: E402
 
 TOUCHED_ONLY = True
@@ -86,7 +86,8 @@ def latency_summary(dt_ms: int) -> None:
     if measured:
         measured.sort()
         print(f"  --- n={len(measured)}  min={measured[0]}  "
-              f"p50={measured[len(measured)//2]}  max={measured[-1]}  ms "
+              f"p50={percentile(measured, 50):.0f}  p95={percentile(measured, 95):.0f}  "
+              f"max={measured[-1]}  ms "
               f"(NFR-01 danger-path target <= 200 ms; indicative, not headline)")
     else:
         print("  --- no clean approach-path crossing in S1-S6 (boosted/static); use --live observer")

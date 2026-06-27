@@ -157,6 +157,23 @@ def test_reverse_boosts_rear_zone():
     assert d1 > d0  # REAR is in reverse_boost_zones
 
 
+def test_highway_speed_relaxes_side_zone_only():
+    """05 §5.4 speed band: at/above high_min (50), SIDE zones relax (narrower thresholds → less
+    curb/guardrail nuisance at lane-change speed); the transition band (low_max..high_min) holds
+    low-speed behavior unchanged; FRONT/REAR (non-side) zones are untouched. The shipped config
+    sets highway_side_factor 0.85."""
+    eng = make_engine()
+    right = eng.cfg.zones["RIGHT"]  # a side zone (_zone_side -> "right")
+    c_low, d_low = eng._effective_thresholds(right, {"speed_kph": 10}, None)
+    c_hwy, d_hwy = eng._effective_thresholds(right, {"speed_kph": 60}, None)
+    assert d_hwy < d_low and c_hwy < c_low                  # highway relaxes the side zone
+    c_band, d_band = eng._effective_thresholds(right, {"speed_kph": 40}, None)
+    assert (c_band, d_band) == (c_low, d_low)               # 30–50 transition holds low-speed behavior
+    rear = eng.cfg.zones["REAR"]  # not a side zone (no LEFT/RIGHT in the id)
+    assert eng._effective_thresholds(rear, {"speed_kph": 60}, None) == \
+        eng._effective_thresholds(rear, {"speed_kph": 10}, None)
+
+
 def test_tick_returns_all_enabled_zones():
     eng = make_engine()
     states = eng.tick(0.0, 0, None)
@@ -170,6 +187,18 @@ def test_standby_flag_when_parked_stationary():
     eng.ingest(r(2.5), 0.0)
     st = {s["zone_id"]: s for s in eng.tick(0.0, 0, {"gear": "park", "speed_kph": 0})}["RIGHT"]
     assert st["standby"] is True
+
+
+def test_zone_payload_carries_risk_weight_and_reflects_retune():
+    """The zone payload emits risk_weight (05 §5.6) so the HMI prioritizes by the LIVE value; a
+    set_threshold(risk_weight) is reflected on the next tick — runtime re-prioritization."""
+    eng = make_engine()
+    eng.ingest(r(2.5), 0.0)
+    st = {s["zone_id"]: s for s in eng.tick(0.0, 0, None)}["RIGHT"]
+    assert st["risk_weight"] == eng.cfg.zones["RIGHT"].risk_weight
+    eng.apply_cmd("set_threshold", {"zone_id": "RIGHT", "risk_weight": 3.3})
+    st2 = {s["zone_id"]: s for s in eng.tick(100.0, 100, None)}["RIGHT"]
+    assert st2["risk_weight"] == 3.3
 
 
 # ------------------------------------------------- trust boundary: malformed / contract-violating input

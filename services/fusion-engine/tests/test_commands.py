@@ -82,14 +82,29 @@ def test_set_threshold_rejects_inverted_bands():
 
 
 def test_set_threshold_no_partial_mutation_on_reject():
-    """A valid field followed by an invalid one must not leave the valid one half-applied."""
+    """A valid field validated earlier in the loop must not be half-applied when a LATER field is
+    rejected. danger_m is parsed before caution_m, so a valid danger_m + an invalid caution_m
+    exercises the 'validate all, then mutate' guarantee."""
     eng = make_engine()
     d0, c0 = eng.cfg.zones["RIGHT"].danger_m, eng.cfg.zones["RIGHT"].caution_m
     changed, _ = eng.apply_cmd("set_threshold",
-                               {"zone_id": "RIGHT", "caution_m": 2.0, "risk_weight": -3})
+                               {"zone_id": "RIGHT", "danger_m": 0.5, "caution_m": "oops"})
     assert not changed
-    assert eng.cfg.zones["RIGHT"].caution_m == c0  # the valid caution_m was NOT applied
-    assert eng.cfg.zones["RIGHT"].danger_m == d0
+    assert eng.cfg.zones["RIGHT"].danger_m == d0   # the valid danger_m was NOT applied
+    assert eng.cfg.zones["RIGHT"].caution_m == c0
+
+
+def test_set_threshold_applies_risk_weight():
+    """risk_weight is live-tunable: the engine emits it in the zone payload (engine._payload), so a
+    retune re-prioritizes the HMI banner/ear at runtime (05 §5.6). Validated like the thresholds."""
+    eng = make_engine()
+    changed, detail = eng.apply_cmd("set_threshold", {"zone_id": "RIGHT", "risk_weight": 9.9})
+    assert changed and "risk_weight=9.9" in detail
+    assert eng.cfg.zones["RIGHT"].risk_weight == 9.9
+    # still rejected when non-positive or non-numeric (same rule as the distance thresholds)
+    assert not eng.apply_cmd("set_threshold", {"zone_id": "RIGHT", "risk_weight": -1})[0]
+    assert not eng.apply_cmd("set_threshold", {"zone_id": "RIGHT", "risk_weight": "x"})[0]
+    assert eng.cfg.zones["RIGHT"].risk_weight == 9.9          # unchanged by the rejected commands
 
 
 def test_disable_zone_drops_it_from_tick_then_enable_restores():

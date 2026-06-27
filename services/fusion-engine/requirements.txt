@@ -1,2 +1,4 @@
-paho-mqtt>=2.0
-jsonschema>=4.18
+# Upper-bounded so a future major can't silently enter a build (the engine uses the paho 2.x
+# CallbackAPIVersion API; a paho 3 would be a breaking change). Pin exact + hash-lock for the pilot.
+paho-mqtt>=2.0,<3
+jsonschema>=4.18,<5

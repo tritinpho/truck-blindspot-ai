@@ -9,3 +9,10 @@
 logs
 *.log
 **/.DS_Store
+# never bake local secrets into an image layer (mirrors .gitignore; the context is the repo root)
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/passwordfile
+**/aclfile

@@ -2,7 +2,13 @@ name: ci
 
 on:
   push:
+    branches: [main]   # don't double-run on every feature-branch push; PRs cover those
   pull_request:
+
+# Least privilege: every job only reads the repo. No job pushes commits, comments, or releases, so
+# the default (often read/write) GITHUB_TOKEN scope is over-broad — pin it read-only at the top.
+permissions:
+  contents: read
 
 jobs:
   # L1 contract + L2 fusion logic + L3 scenarios + the broker-free integration shim. All run
@@ -56,6 +62,8 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r tests/requirements.txt paho-mqtt
+      - name: Make the bind-mounted log dir writable by the non-root fusion container (UID 10001)
+        run: mkdir -p logs && chmod 777 logs
       - name: Bring up broker + fusion (the shipped compose stack)
         run: docker compose -f deploy/docker-compose.yml up -d --build
       - name: Build the in-cabin HMI image (no broker-side test, but its build must not regress)

@@ -15,6 +15,8 @@ export interface ZoneState {
   severity: Severity;
   object_class?: ObjectClass;
   nearest_range_m?: number | null;
+  /** HMI prioritization weight (05 §5.6), emitted per tick so a runtime retune re-prioritizes live. */
+  risk_weight?: number;
   source?: string;
   reason?: string;
   stale?: boolean;

@@ -169,11 +169,15 @@ def recommend(rows):
     if not ok:
         print("\nNo config met the detection budgets — widen the grid.")
         return
-    # meet detection, then minimise false alarms (episodes → dwell → flicker), then prefer faster
     # meet detection (with real-path headroom), then no flicker (FR-09's named target), then
-    # fewest false-DANGER episodes, then least dwell, then faster.
-    ok.sort(key=lambda r: (r["nui_flicker"], r["nui_episodes"], r["nui_dwell"],
-                           max(d["latency"] for d in r["detection"].values())))
+    # fewest false-DANGER episodes, then least dwell, then the most latency headroom.
+    def _worst_headroom(r):
+        # smallest est-real margin across the detection cases — they have DIFFERENT budgets (deep 200,
+        # boundary 250), so compare margin-to-budget, not raw latency (a plain max(latency) can prefer
+        # a config that sits closer to its own tighter ceiling). Larger headroom = safer. All `ok`
+        # rows passed meets_budget, so every latency is a number.
+        return min(d["budget"] - PHYSICAL_PATH_MS - d["latency"] for d in r["detection"].values())
+    ok.sort(key=lambda r: (r["nui_flicker"], r["nui_episodes"], r["nui_dwell"], -_worst_headroom(r)))
     best = ok[0]
     print(f"\nRecommended operating point: confirm={best['confirm']}, "
           f"release_margin_m={best['margin']:.2f}, release={DEFAULTS['release']}, "

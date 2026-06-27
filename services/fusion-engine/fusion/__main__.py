@@ -6,8 +6,10 @@ the client, the subscribe set, the LWT, the ~1 Hz heartbeat, and the fixed-caden
 
 Subscribes bsw/sensor/#, bsw/detection/#, bsw/vehicle, and bsw/cmd/# (live retune — set_threshold
 / enable_zone / disable_zone / reload_config, 04 §4.3.6). On each tick publishes retained
-bsw/zone/{zone_id} and logs severity transitions (FR-10). Emits a bsw/health/fusion heartbeat with
-an MQTT Last-Will (04 §4.3.5, ADR-0006 #2). Staleness uses a local monotonic clock (ADR-0008).
+bsw/zone/{zone_id} and logs severity transitions (FR-10). Emits a RETAINED bsw/health/fusion
+heartbeat + a retained MQTT Last-Will (04 §4.3.5, ADR-0006 #2) so the health topic always holds the
+current truth and a late-joining HMI latches a dead fusion at once. Staleness uses a local monotonic
+clock (ADR-0008).
 
 Run (from services/fusion-engine, with the broker up):
     python -m fusion
@@ -70,7 +72,7 @@ def main() -> None:
     def on_connect(client, userdata, flags, reason_code, properties=None):
         print(f"[fusion] connected ({reason_code})")
         client.subscribe(SUB_TOPICS)
-        client.publish("bsw/health/fusion", health("ok", "fusion up"), qos=0)
+        client.publish("bsw/health/fusion", health("ok", "fusion up"), qos=0, retain=True)
 
     def on_message(client, userdata, msg):
         res = svc.handle_message(msg.topic, msg.payload, mono_ms(), now_ms())
@@ -81,7 +83,13 @@ def main() -> None:
     client = make_client()
     client.on_connect = on_connect
     client.on_message = on_message
-    client.will_set("bsw/health/fusion", health("fault", "ungraceful disconnect (LWT)"), qos=1)
+    # RETAINED Last-Will: zone state is retained, so a late-joining HMI gets a fresh-stamped zone
+    # snapshot even when fusion is dead — and would read MONITORING for a whole freshness window
+    # unless it ALSO immediately learns fusion is down. Retaining the LWT (and the heartbeats below)
+    # makes `bsw/health/fusion` always hold the current truth, so the HMI latches the fault on connect
+    # and trips SIGNAL_LOST at once instead of briefly showing stale-as-live (ADR-0006 fail-loud).
+    client.will_set("bsw/health/fusion", health("fault", "ungraceful disconnect (LWT)"),
+                    qos=1, retain=True)
     client.connect(args.host, args.port, keepalive=30)
     client.loop_start()
 
@@ -109,15 +117,26 @@ def main() -> None:
                 # HMI trips SIGNAL_LOST. (One stray tick error still heartbeats ok.)
                 if tick_fails >= 3:
                     client.publish("bsw/health/fusion",
-                                   health("fault", f"tick failing ({tick_fails} consecutive)"), qos=0)
+                                   health("fault", f"tick failing ({tick_fails} consecutive)"),
+                                   qos=0, retain=True)
                 else:
                     client.publish("bsw/health/fusion",
-                                   health("ok", f"{svc.sensors_seen()} sensors seen"), qos=0)
+                                   health("ok", f"{svc.sensors_seen()} sensors seen"),
+                                   qos=0, retain=True)
                 last_hb = tick
             time.sleep(max(0.0, 1.0 / TICK_HZ - (time.time() - tick)))
     except KeyboardInterrupt:
         print("\n[fusion] stopping")
     finally:
+        # A GRACEFUL stop does not fire the LWT, so publish the retained fault ourselves — otherwise
+        # the last retained health stays "ok" and a late-joining HMI would read a dead fusion as live
+        # for a full freshness window. Best-effort + flushed before we disconnect (ADR-0006).
+        try:
+            info = client.publish("bsw/health/fusion",
+                                  health("fault", "stopped (graceful shutdown)"), qos=1, retain=True)
+            info.wait_for_publish(timeout=1.0)
+        except Exception:  # noqa: BLE001 — shutdown notice is best-effort
+            pass
         log.close()
         client.loop_stop()
         client.disconnect()

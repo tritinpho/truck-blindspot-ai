@@ -1,2 +1,3 @@
-jsonschema>=4.18
-pytest>=7.0
+# Upper-bounded so a future major can't silently change contract validation / test collection.
+jsonschema>=4.18,<5
+pytest>=7.0,<9

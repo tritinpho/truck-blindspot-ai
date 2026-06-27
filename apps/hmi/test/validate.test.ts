@@ -1,7 +1,7 @@
 // L2-equivalent for the wire-input trust boundary (06 §6.5). Pure logic. Run: node --test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isRenderableRange, isRenderableZone } from "../src/validate.ts";
+import { isRenderableRange, isRenderableZone, zoneSchemaMajorOk } from "../src/validate.ts";
 
 test("isRenderableRange accepts finite numbers and null/absent, rejects wrong types", () => {
   for (const ok of [0, 1.23, -1, 1000, null, undefined]) {
@@ -20,6 +20,20 @@ test("isRenderableZone rejects a spoofed/skewed nearest_range_m before it reache
   assert.equal(isRenderableZone({ ...base }), true);                        // range absent
   assert.equal(isRenderableZone({ ...base, nearest_range_m: "1.2" }), false); // the exact freeze trigger
   assert.equal(isRenderableZone({ ...base, nearest_range_m: [1] }), false);
+});
+
+test("zoneSchemaMajorOk rejects only a recognised-but-incompatible major (04 §4.4)", () => {
+  assert.equal(zoneSchemaMajorOk("bsw.zone_state/1"), true);
+  assert.equal(zoneSchemaMajorOk("bsw.zone_state/2"), false); // breaking major → drop
+  assert.equal(zoneSchemaMajorOk(undefined), true);           // absent envelope → field checks decide
+  assert.equal(zoneSchemaMajorOk("something-else"), true);    // unparseable → don't over-reject
+});
+
+test("isRenderableZone drops an incompatible zone_state major, ages zone to UNKNOWN (fail-loud)", () => {
+  const base = { zone_id: "RIGHT", ts: 0, severity: "DANGER", nearest_range_m: 1.2 };
+  assert.equal(isRenderableZone({ ...base, schema: "bsw.zone_state/1" }), true);
+  assert.equal(isRenderableZone({ ...base, schema: "bsw.zone_state/2" }), false); // v2 → not rendered
+  assert.equal(isRenderableZone({ ...base }), true); // schema absent → still renders on valid fields
 });
 
 test("isRenderableZone still rejects unknown severity and missing/empty zone_id", () => {

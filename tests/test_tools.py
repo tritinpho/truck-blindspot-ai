@@ -39,7 +39,9 @@ def test_latency_rearms_after_clearing():
     p.effect("RIGHT", "DANGER", 720.0)    # fresh approach: 120 ms
     s = p.summary()
     assert p.values_ms() == [150.0, 120.0]
-    assert s == {"n": 2, "min": 120.0, "max": 150.0, "mean": 135.0, "p50": 150.0}
+    # p50 is the unbiased interpolated median ((120+150)/2 = 135), NOT the upper-median v[n//2]=150;
+    # p95 is the tail (120·0.05 + 150·0.95). These are the NFR-01 latency figures, so report them honestly.
+    assert s == {"n": 2, "min": 120.0, "max": 150.0, "mean": 135.0, "p50": 135.0, "p95": 148.5}
 
 
 def test_latency_ignores_danger_without_stimulus():

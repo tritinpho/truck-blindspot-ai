@@ -9,11 +9,15 @@
 #   # open the HMI: http://localhost:8080  (or `cd apps/hmi && npm run dev`)
 services:
   broker:
-    image: eclipse-mosquitto:2
+    image: eclipse-mosquitto:2.0
     container_name: bsw-broker
+    # Bind published ports to loopback for the dev bench: the broker is anonymous (mosquitto.conf),
+    # so do NOT expose it on 0.0.0.0 where any host on the LAN could publish bsw/cmd/fusion or spoof
+    # bsw/zone/#. All clients (fusion, sim, HMI) use localhost. The vehicle pilot adds auth+TLS
+    # (docs/22) before anything binds a routable interface.
     ports:
-      - "1883:1883"   # MQTT — fusion, simulator, ESP32 sensor nodes
-      - "9001:9001"   # MQTT over WebSocket — in-cabin HMI
+      - "127.0.0.1:1883:1883"   # MQTT — fusion, simulator, ESP32 sensor nodes
+      - "127.0.0.1:9001:9001"   # MQTT over WebSocket — in-cabin HMI
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
     restart: unless-stopped
@@ -27,7 +31,10 @@ services:
       - broker
     volumes:
       - ../config:/app/config:ro   # frozen-contract config; reload_config re-reads host edits
-      - ../logs:/app/logs          # events.jsonl/.db on the host for tools/log_replay.py (11 §11.6)
+      # events.jsonl/.db on the host for tools/log_replay.py (11 §11.6). The container runs non-root
+      # (UID 10001), so on a host that enforces bind-mount ownership this dir must be writable by it
+      # (CI runs `chmod 777 logs` first; Docker Desktop bind mounts are already permissive).
+      - ../logs:/app/logs
     # connects to the broker by service name; if it starts first it restarts until the broker is up
     restart: unless-stopped
 
@@ -40,5 +47,7 @@ services:
     depends_on:
       - broker
     ports:
-      - "8080:80"    # http://localhost:8080 → static HMI; the browser talks to ws://localhost:9001
+      # host 8080 → container 8080 (the non-root nginx-unprivileged port). Loopback-only, like the
+      # broker. http://localhost:8080 → static HMI; the browser talks to ws://localhost:9001.
+      - "127.0.0.1:8080:8080"
     restart: unless-stopped

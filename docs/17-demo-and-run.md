@@ -44,6 +44,13 @@ TCP is `tests/test_integration_broker.py` (it **skips** unless a broker + fusion
 
 ## 2. One-command bring-up (broker + fusion)
 
+> **Quickest path — the whole demo in one command.** `python tools/demo.py` brings up the stack
+> (broker + fusion + HMI at :8080, the `hmi` profile), waits for the broker, opens the HMI in your
+> browser, and drives the narrated S1/S2+fault/S4/S6 timeline (`tools/sim_demo.py`). Ctrl-C stops the
+> drive but leaves the stack up so you can keep poking the HMI; `python tools/demo.py --down` removes
+> it. `--no-up` if the stack is already running, `--no-browser` for a headless box. This collapses
+> §2–§4 below — which remain the manual, step-by-step path when you want to drive the pieces yourself.
+
 ```bash
 docker compose -f deploy/docker-compose.yml up -d        # broker (:1883 / :9001) + fusion engine
 docker compose -f deploy/docker-compose.yml logs -f fusion   # watch it connect + tick

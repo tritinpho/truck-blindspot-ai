@@ -142,6 +142,9 @@ def load_config(zones_path: Path, sensors_path: Path) -> Config:
         "park_standby_mute_audio": bool(ctx_in.get("park_standby_mute_audio", False)),
         "speed_low_max": float(bands.get("low_max", 30)),
         "speed_high_min": float(bands.get("high_min", 50)),
+        # >= speed_high_min, SIDE zones relax toward lane-change relevance (05 §5.4). factor<1
+        # narrows the trigger distance (warns later); default 1.0 = no change (back-compat).
+        "highway_side_factor": float(bands.get("highway_side_factor", 1.0)),
     }
     tun = {
         "confirm": int(d.get("confirm", 2)),
@@ -225,6 +228,9 @@ class FusionEngine:
                 return False, f"unknown zone {zid!r}"
             # Parse + validate ALL provided fields first (no mutation yet) so a later rejection can't
             # leave the zone half-updated — a partial setattr would silently mis-tune a safety zone.
+            # `risk_weight` is live-tunable too: the engine emits it in every zone payload (_payload),
+            # so retuning it here re-prioritizes the HMI banner/ear at runtime (05 §5.6), not an inert
+            # change. (It biases priority only; it never gates a threshold, so it has no cross-field rule.)
             proposed: dict[str, float] = {}
             for key in ("danger_m", "caution_m", "risk_weight"):
                 if args.get(key) is None:
@@ -305,6 +311,17 @@ class FusionEngine:
             if boosted:  # R2-1: factor>1 WIDENS the trigger distance -> warns sooner
                 caution *= ctx["factor_caution_m"]
                 danger *= ctx["factor_danger_m"]
+            # Speed bands (05 §5.4): at/above speed_high_min the truck is at lane-change/highway
+            # speed, not low-speed maneuvering — relax the SIDE zones (LEFT/RIGHT-bearing) so a curb
+            # or guardrail at the shoulder stops nagging (highway_side_factor<1 narrows the trigger).
+            # Below high_min — INCLUDING the low_max..high_min transition band — low-speed behavior
+            # holds unchanged (no abrupt step across the gap). A turn signal still composes: an
+            # intentional lane change keeps its boost. (Suppressing only very-near STATIC returns
+            # needs motion/class info the phase-1 ultrasonic lacks — that part stays phase-2.)
+            speed = _finite_num(vehicle.get("speed_kph"))
+            if speed is not None and speed >= ctx["speed_high_min"] and side is not None:
+                caution *= ctx["highway_side_factor"]
+                danger *= ctx["highway_side_factor"]
         return caution, danger
 
     def _is_standby(self, vehicle) -> bool:
@@ -343,7 +360,13 @@ class FusionEngine:
             nearest = min(float(r["range_m"]) for r in present)
             target = DANGER if nearest <= eff_danger else CAUTION if nearest <= eff_caution else SAFE
 
-        # recover from UNKNOWN immediately on a fresh healthy reading (05 §5.3 state machine)
+        # Recover from UNKNOWN immediately on a fresh healthy reading (05 §5.3). We ADOPT the current
+        # reading's severity directly — including straight to DANGER — with NO confirm gate. This is
+        # deliberate and fail-toward-safety: after a stale/fault gap there is no trustworthy prior
+        # state to debounce against, and delaying a real DANGER to re-confirm would burn latency in
+        # the wrong direction. The cost is that one noisy sample right after recovery can flash DANGER
+        # for a tick, but that is the SAFE failure (over-warn), and the release hysteresis still gates
+        # the way back down. (The §5.3 diagram shows UNKNOWN -> SAFE/CAUTION/DANGER: adopt current.)
         if rt.severity == UNKNOWN:
             rt.severity, rt.confirm, rt.release = target, 0, 0
             return self._payload(zid, target, nearest, object_class, now_epoch_ms,
@@ -385,6 +408,10 @@ class FusionEngine:
             "severity": severity,
             "object_class": object_class,
             "nearest_range_m": nearest,
+            # HMI prioritization weight (05 §5.6): the HMI picks the banner/ear by risk_weight ×
+            # severity. Emitting it per tick (not just shipping it in the HMI's build-time config) is
+            # what lets a runtime set_threshold(risk_weight) actually re-prioritize the live display.
+            "risk_weight": self.cfg.zones[zid].risk_weight,
             "source": "fusion",
             "reason": reason,
             "stale": stale or severity == UNKNOWN,

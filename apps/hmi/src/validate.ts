@@ -11,6 +11,19 @@
 import type { ZoneState } from "./types";
 
 const VALID_SEVERITIES = new Set(["SAFE", "CAUTION", "DANGER", "UNKNOWN"]);
+const ZONE_SCHEMA_MAJOR = "1";
+
+/** Forward-compat (04 §4.4: "reject mismatched majors"): render a zone message only if its schema
+ * major is one we understand. A recognised-but-incompatible major (e.g. bsw.zone_state/2, a breaking
+ * change) is dropped → the zone ages to UNKNOWN via the liveness clock (fail-loud) instead of being
+ * mis-rendered under v1 field assumptions. A missing/unparseable `schema` falls through to the field
+ * checks below (those are the real load-bearing guard), so a peer that just omits the envelope — or a
+ * future minor bump — is not over-rejected. */
+export function zoneSchemaMajorOk(schema: unknown): boolean {
+  if (typeof schema !== "string") return true;
+  const m = /^bsw\.zone_state\/(\d+)$/.exec(schema);
+  return m === null || m[1] === ZONE_SCHEMA_MAJOR;
+}
 
 /** A range the renderer can safely call `.toFixed()` on: a finite number, or null/absent. Fusion
  * legitimately publishes a null range while holding a last-known severity through a stale window
@@ -25,6 +38,7 @@ export function isRenderableRange(v: unknown): boolean {
 export function isRenderableZone(z: unknown): z is ZoneState {
   const o = z as Record<string, unknown> | null;
   return !!o
+    && zoneSchemaMajorOk(o.schema)
     && typeof o.zone_id === "string" && o.zone_id.length > 0
     && typeof o.severity === "string" && VALID_SEVERITIES.has(o.severity)
     && isRenderableRange(o.nearest_range_m);

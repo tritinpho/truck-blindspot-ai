@@ -15,7 +15,7 @@ export interface UICallbacks {
   setLang(l: Lang): void;
   setTheme(m: ThemeMode): void;
   setView(v: ViewName): void;
-  setThreshold(zoneId: string, caution_m: number, danger_m: number): void;
+  setThreshold(zoneId: string, caution_m: number, danger_m: number, risk_weight: number): void;
   setZoneEnabled(zoneId: string, enabled: boolean): void;
   userGesture(): void;
 }
@@ -169,25 +169,31 @@ export class UI {
 
       const caution = this.slider(z.caution_m, 0.3, 4.0);
       const danger = this.slider(z.danger_m, 0.2, 3.0);
+      // risk_weight (05 §5.6) biases which active zone owns the banner/ear; unitless, > 0. Fusion
+      // emits it per tick and re-prioritizes the live display on retune (engine._payload / set_threshold).
+      const priority = this.slider(z.risk_weight, 0.5, 3.0, "");
       // danger_m is the inner threshold and must stay <= caution_m (fusion rejects an inverted
       // pair, 05 §5.2). Couple the sliders so the UI can't emit one: nudge danger down to meet
-      // caution before publishing, and keep both value labels in step.
+      // caution before publishing, and keep all three value labels in step.
       const push = () => {
         const c = Number(caution.input.value);
         if (Number(danger.input.value) > c) danger.input.value = String(c);
         caution.sync();
         danger.sync();
-        this.cb.setThreshold(z.id, c, Number(danger.input.value));
+        priority.sync();
+        this.cb.setThreshold(z.id, c, Number(danger.input.value), Number(priority.input.value));
       };
       caution.input.addEventListener("input", push);
       danger.input.addEventListener("input", push);
+      priority.input.addEventListener("input", push);
 
-      row.append(enable, name, this.labeled("caution", caution.wrap), this.labeled("danger", danger.wrap));
+      row.append(enable, name, this.labeled("caution", caution.wrap), this.labeled("danger", danger.wrap),
+        this.labeled("priority", priority.wrap));
       host.appendChild(row);
     }
   }
 
-  private slider(value: number, min: number, max: number) {
+  private slider(value: number, min: number, max: number, unit = "m") {
     const wrap = document.createElement("div");
     wrap.className = "sliderWrap";
     const input = document.createElement("input");
@@ -198,7 +204,10 @@ export class UI {
     input.value = String(value);
     const out = document.createElement("span");
     out.className = "sliderOut";
-    const sync = () => { out.textContent = `${Number(input.value).toFixed(1)} m`; };
+    const sync = () => {
+      const v = Number(input.value).toFixed(1);
+      out.textContent = unit ? `${v} ${unit}` : v;
+    };
     sync();
     wrap.append(input, out);
     return { wrap, input, sync };

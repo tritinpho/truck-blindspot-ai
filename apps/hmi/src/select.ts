@@ -17,6 +17,25 @@ export interface ZonePriority {
 }
 
 /**
+ * Per-zone priority from the LIVE wire risk_weight (fusion emits it each tick, 05 §5.6), falling
+ * back to the build-time config weight when the wire value is missing. So a runtime
+ * `set_threshold(risk_weight)` re-prioritizes the banner/ear without a rebuild. The wire value is
+ * untrusted (anonymous broker) and isn't checked by validate.ts, so take it only when it is a
+ * finite positive number — a spoofed/garbled risk_weight must not poison `risk_weight × severity`.
+ */
+export function liveZonePriorities(
+  configWeights: Map<string, number>,
+  states: Map<string, ZoneState>,
+): ZonePriority[] {
+  const out: ZonePriority[] = [];
+  for (const [id, base] of configWeights) {
+    const rw = states.get(id)?.risk_weight;
+    out.push({ id, risk_weight: typeof rw === "number" && Number.isFinite(rw) && rw > 0 ? rw : base });
+  }
+  return out;
+}
+
+/**
  * Worst active zone by `risk_weight × severityRank` (05 §5.6). Returns null when nothing is
  * actively alerting (all SAFE/UNKNOWN). Ties resolve to the higher raw severity, then first seen.
  */

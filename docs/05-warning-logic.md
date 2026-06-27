@@ -83,6 +83,12 @@ readings are noisy. Two mechanisms:
    (`fault_chime_min_interval_ms`, default 10 s per zone) so Wi-Fi jitter inside a metal body
    ([ADR-0002](adr/ADR-0002-message-bus.md)) cannot nag. Set `stale_after_ms` to **≥ 3× the
    slowest expected sample period** (~600 ms for 5 Hz ultrasonic; the example uses 700 ms).
+4. **Recovery adopts the current reading (fail-toward-safety).** *Leaving* UNKNOWN is **not** gated
+   by `confirm`: on the first fresh healthy reading a zone adopts that reading's severity directly —
+   SAFE, CAUTION, **or DANGER**. After a stale/fault gap there is no trustworthy prior state to
+   debounce against, and re-confirming a genuine DANGER would spend latency in the wrong direction.
+   The cost — one noisy post-recovery sample can flash DANGER for a tick — is the *safe* failure
+   (over-warn), and the release hysteresis still gates the way back down.
 
 ```mermaid
 stateDiagram-v2
@@ -94,7 +100,9 @@ stateDiagram-v2
     SAFE --> UNKNOWN: stale/fault (xStaleConfirm)
     CAUTION --> UNKNOWN: stale/fault (xStaleConfirm)
     DANGER --> UNKNOWN: stale/fault (xStaleConfirm)
-    UNKNOWN --> SAFE: healthy reading resumes
+    UNKNOWN --> SAFE: healthy resumes (adopt current)
+    UNKNOWN --> CAUTION: healthy resumes (adopt current)
+    UNKNOWN --> DANGER: healthy resumes (adopt current)
 ```
 
 ## 5.4 Context-aware modifiers (FR-08) — the anti-alert-fatigue layer
@@ -118,7 +126,7 @@ threshold, not a smaller number. Factors compose by multiplication.
 | `gear = reverse` | `REAR*` zones boosted; front zones de-emphasized to visual-only. |
 | `speed ≤ low_max (~30 kph)` | Full low-speed sensitivity (maneuvering — the primary use case). |
 | `low_max < speed < high_min` | Transition band: hold low-speed behavior (no abrupt change across the gap). |
-| `speed ≥ high_min (~50 kph)` | Side zones relax toward lane-change relevance; very-near static returns suppressed (highway, not curb). |
+| `speed ≥ high_min (~50 kph)` | **Side zones** (LEFT/RIGHT-bearing) relax toward lane-change relevance: thresholds scale by `highway_side_factor` (`< 1` narrows → warns later, less curb/guardrail nuisance). FRONT/REAR are unchanged. *(Implemented in `engine._effective_thresholds`. Suppressing only very-near **static** returns — distinguishing a curb from a moving vehicle — needs motion/class info the phase-1 ultrasonic lacks; that refinement is phase-2.)* |
 | `gear = park` & stationary | **Standby**: keep visual map, suppress audio nagging when next to a wall/curb (S6). |
 | no vehicle data | Safe default: monitor **all** zones at normal thresholds. |
 
@@ -158,6 +166,8 @@ to the most dangerous zone first.
 ## 5.8 Tunables (live in `config/`)
 
 `confirm`, `release`, `margin_m`, `immediate_danger_factor`, `stale_after_ms`, `stale_confirm`,
-`fault_chime_min_interval_ms`, per-zone `caution_m`/`danger_m`, `risk_weight`,
-VRU threshold multiplier, speed bands, audio frequencies, mute timeout. All adjustable via
-`bsw/cmd/...` during evaluation to find the false-alarm/sensitivity sweet spot (NFR-09).
+`fault_chime_min_interval_ms`, per-zone `caution_m`/`danger_m`, `risk_weight` (HMI-side priority,
+not a live `set_threshold` field), VRU threshold multiplier, speed bands
+(`low_max`/`high_min`/`highway_side_factor`), audio frequencies, mute timeout. The distance
+thresholds are adjustable via `bsw/cmd/set_threshold` during evaluation to find the
+false-alarm/sensitivity sweet spot (NFR-09).

@@ -21,6 +21,9 @@ COPY config/ /app/config/
 ARG VITE_BROKER_WS
 RUN npm run build
 
-FROM nginx:alpine
+# Serve non-root (least privilege): the -unprivileged image runs as user nginx (UID 101) and listens
+# on 8080 instead of 80 (binding :80 is what would need root). Static assets are world-readable, so
+# no chown is needed. The published port is remapped to 8080 in deploy/docker-compose.yml.
+FROM nginxinc/nginx-unprivileged:alpine
 COPY --from=build /app/apps/hmi/dist /usr/share/nginx/html
-EXPOSE 80
+EXPOSE 8080

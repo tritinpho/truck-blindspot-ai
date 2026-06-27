@@ -12,13 +12,14 @@ idle ones, present=true with a range for the active one(s) — so idle zones rea
 UNKNOWN) exactly like a continuously-firing rig. A "dropout" phase simply stops publishing one
 sensor; fusion then ages it past stale_after_ms and the zone goes UNKNOWN (fail-loud, NFR-04).
 
-    docker compose -f deploy/docker-compose.yml up -d
-    (cd services/fusion-engine && python -m fusion)
-    python tools/sim_demo.py            # then open the HMI (apps/hmi: npm run dev)
+    python tools/demo.py               # one command: compose up (+HMI :8080) → open browser → this timeline
+    # …or by hand, with the stack already up (broker + fusion run in the compose stack):
+    docker compose -f deploy/docker-compose.yml --profile hmi up -d   # broker + fusion + HMI at :8080
+    python tools/sim_demo.py                                          # drive this timeline
 
-Tip: start the HMI BEFORE the fusion engine once to see the "warming up — not yet monitoring"
-screen (NFR-12); kill the fusion process mid-run to see the map flip to UNKNOWN + SIGNAL LOST
-within the freshness window (TC-F4).
+Tip: kill fusion mid-run (`docker compose -f deploy/docker-compose.yml kill fusion`) to see the map
+flip to UNKNOWN + SIGNAL LOST within the freshness window (TC-F4); start the HMI before fusion to see
+the "warming up — not yet monitoring" screen (NFR-12).
 """
 from __future__ import annotations
 
@@ -26,6 +27,9 @@ import argparse
 import json
 import sys
 import time
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")  # portable glyphs (▶) on a Windows cp1252 console
 
 # zone -> the ultrasonic sensor that feeds it (mirrors config/sensors.example.json)
 ZONE_SENSOR = {
@@ -86,38 +90,34 @@ def vehicle_msg(veh: dict) -> str:
     })
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--host", default="localhost")
-    ap.add_argument("--port", type=int, default=1883)
-    ap.add_argument("--hz", type=float, default=12.0, help="publish rate per sensor")
-    ap.add_argument("--once", action="store_true", help="play the timeline once, then stop")
-    args = ap.parse_args()
-
+def drive(host: str = "localhost", port: int = 1883, hz: float = 12.0, once: bool = False) -> int:
+    """Play the narrated multi-zone timeline live onto the broker. Returns 0 on clean finish / Ctrl-C,
+    1 on a bad rate or an unreachable broker. Importable so `tools/demo.py` reuses the same timeline
+    instead of duplicating it (one source of truth for the demo content)."""
     import paho.mqtt.client as mqtt
     try:
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     except (AttributeError, TypeError):
         client = mqtt.Client()
-    # Compute the period BEFORE connecting (a bad --hz of 0 would ZeroDivisionError after loop_start,
-    # leaking the network thread). argparse gives a float; guard the zero so it fails cleanly here.
-    if args.hz <= 0:
-        print(f"[demo] --hz must be > 0 (got {args.hz})", file=sys.stderr)
-        return
-    period = 1.0 / args.hz
+    # Compute the period BEFORE connecting (a bad hz of 0 would ZeroDivisionError after loop_start,
+    # leaking the network thread). Guard the zero so it fails cleanly here.
+    if hz <= 0:
+        print(f"[demo] --hz must be > 0 (got {hz})", file=sys.stderr)
+        return 1
+    period = 1.0 / hz
     try:
-        client.connect(args.host, args.port, 30)
+        client.connect(host, port, 30)
     except OSError as e:
-        print(f"[demo] broker unreachable at {args.host}:{args.port} ({e})", file=sys.stderr)
-        return
+        print(f"[demo] broker unreachable at {host}:{port} ({e})", file=sys.stderr)
+        return 1
     client.loop_start()
 
-    print(f"[demo] driving {len(ALL_SENSORS)} sensors @ {args.hz:g} Hz "
-          f"({'one pass' if args.once else 'looping'}; Ctrl-C to stop)")
+    print(f"[demo] driving {len(ALL_SENSORS)} sensors @ {hz:g} Hz "
+          f"({'one pass' if once else 'looping'}; Ctrl-C to stop)")
 
     try:
         first = True
-        while first or not args.once:
+        while first or not once:
             first = False
             for label, dur, veh, active, dropped in PHASES:
                 print(f"[demo] ▶ {label}")
@@ -144,6 +144,17 @@ def main() -> None:
     finally:
         client.loop_stop()
         client.disconnect()
+    return 0
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--host", default="localhost")
+    ap.add_argument("--port", type=int, default=1883)
+    ap.add_argument("--hz", type=float, default=12.0, help="publish rate per sensor")
+    ap.add_argument("--once", action="store_true", help="play the timeline once, then stop")
+    args = ap.parse_args()
+    raise SystemExit(drive(args.host, args.port, args.hz, args.once))
 
 
 if __name__ == "__main__":

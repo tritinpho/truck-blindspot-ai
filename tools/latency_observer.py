@@ -94,7 +94,8 @@ def main() -> None:
             print("   no danger-path events observed")
         else:
             print(f"   n={s['n']}  min={s['min']:.0f}  p50={s['p50']:.0f}  mean={s['mean']:.0f}  "
-                  f"max={s['max']:.0f}  ms   (NFR-01 danger-path target <= 200 ms; L4 bench is headline)")
+                  f"p95={s['p95']:.0f}  max={s['max']:.0f}  ms   "
+                  f"(NFR-01 danger-path target <= 200 ms; tail/L4 bench is headline)")
         client.disconnect()
 
 
