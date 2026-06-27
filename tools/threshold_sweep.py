@@ -55,7 +55,7 @@ DETECTION = [
     ("deep",     Scenario("DET-deep", "deep approach RIGHT", "TC-tune",
                           [approach("RIGHT", 3.0, 0.5, 4000)], None, 4000), 200),   # danger-path
     ("boundary", Scenario("DET-bnd", "boundary approach RIGHT", "TC-tune",
-                          [approach("RIGHT", 3.0, 0.9, 4000)], None, 4000), 300),   # boundary-path
+                          [approach("RIGHT", 3.0, 0.9, 4000)], None, 4000), 250),   # boundary-path ≤250 (NFR-01)
 ]
 
 # Nuisance = a noisy object hovering just OUTSIDE danger_m (mean in the CAUTION band): the correct

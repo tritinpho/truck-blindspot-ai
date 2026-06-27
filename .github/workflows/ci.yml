@@ -23,6 +23,26 @@ jobs:
       - run: pytest -q tests/test_integration_shim.py               # L3 — live path over a loopback bus
       - run: pytest -q tests/test_reproducibility.py                # 11 §11.6 — logs replay identically
 
+  # In-cabin HMI: typecheck + the PURE safety-logic unit tests (liveness state machine, worst-zone
+  # selection, and the wire-boundary validators). `node --test` type-strips the .ts tests (Node 22+).
+  # The `integration` job below builds the HMI bundle (tsc + vite) but does NOT run these unit tests,
+  # so without this job a regression in liveness/select/validate would ship with CI still green.
+  hmi:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/hmi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/hmi/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck                                       # tsc --noEmit
+      - run: npm test                                                # node --test (liveness/select/validate)
+
   # End-to-end over a REAL broker (build-plan S5 #1): bring up broker + fusion from the very
   # docker-compose.yml we ship, then publish scenarios live and assert on bsw/zone. BSW_REQUIRE_BROKER
   # turns the test's self-skip into a hard failure, so a broken stack fails the job (not silently skips).
