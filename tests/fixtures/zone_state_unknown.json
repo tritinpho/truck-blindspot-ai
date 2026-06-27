@@ -1,0 +1,12 @@
+{
+  "schema": "bsw.zone_state/1",
+  "zone_id": "REAR_LEFT",
+  "ts": 1719400000200,
+  "severity": "UNKNOWN",
+  "object_class": null,
+  "nearest_range_m": null,
+  "source": "fusion",
+  "reason": "no healthy reading",
+  "stale": true,
+  "standby": false
+}

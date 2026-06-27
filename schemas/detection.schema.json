@@ -12,7 +12,7 @@
     "ts": { "type": "integer", "minimum": 0 },
     "ts_kind": { "enum": ["epoch_ms", "monotonic_ms"], "default": "epoch_ms" },
     "object_class": { "enum": ["pedestrian", "cyclist", "motorbike", "vehicle", "unknown"] },
-    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "classifier confidence 0..1; required on a detection" },
     "bbox": { "type": "array", "items": { "type": "number", "minimum": 0, "maximum": 1 }, "minItems": 4, "maxItems": 4, "description": "[x1,y1,x2,y2] normalized" },
     "est_range_m": { "type": ["number", "null"], "minimum": 0 },
     "ttc_s": { "type": ["number", "null"], "minimum": 0, "description": "optional time-to-collision estimate" }

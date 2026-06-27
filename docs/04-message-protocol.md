@@ -67,6 +67,7 @@ Honor these and any component can be built independently.
 }
 ```
 - `object_class ∈ { pedestrian, cyclist, motorbike, vehicle, unknown }` → drives the HMI icon and lets VRUs be weighted more dangerous.
+- `confidence` (0..1): classifier confidence — **required** on a detection.
 - Like a raw sensor, a camera node does **not** declare its zone. It is keyed by `sensor_id`; the fusion engine resolves `cam_right → RIGHT` via [`../config/sensors.example.json`](../config/sensors.example.json), so the modular sensor→zone mapping (FR-02/03) holds for cameras too — moving the camera is a config edit, not a firmware change.
 - `ttc_s`: optional time-to-collision estimate (improvement, see [`10-improvements.md`](10-improvements.md)).
 
@@ -95,11 +96,13 @@ Honor these and any component can be built independently.
   "nearest_range_m": 0.82,
   "source": "fusion",
   "reason": "range<0.9 & turn_signal=right",
-  "stale": false
+  "stale": false,
+  "standby": false
 }
 ```
 - `severity ∈ { SAFE, CAUTION, DANGER, UNKNOWN }`.
 - `stale=true` + `severity=UNKNOWN` when the contributing sensor(s) went silent (NFR-04).
+- `standby`: park-standby (05 §5.4) — visuals kept, audio nagging suppressed. Fusion sets it on **every** zone each tick; the HMI keys audio suppression off it. Load-bearing for the HMI, so build a zone-state consumer expecting it.
 - `reason`: human-readable trace for debugging/demos (observability, NFR-11).
 
 ### 4.3.5 Health / heartbeat — `bsw/health/{component}`

@@ -6,6 +6,7 @@
   "type": "object",
   "required": ["schema", "zone_id", "ts", "severity"],
   "additionalProperties": true,
+  "$comment": "No ts_kind here (unlike the up-bound wire messages): the sole producer is the fusion engine on the RTC-backed Pi, so ts is always epoch_ms. The HMI ages liveness from local receipt time anyway (ADR-0008), never from this ts.",
   "properties": {
     "schema": { "const": "bsw.zone_state/1" },
     "zone_id": { "enum": ["FRONT", "FRONT_LEFT", "FRONT_RIGHT", "LEFT", "RIGHT", "REAR_LEFT", "REAR_RIGHT", "REAR"] },
