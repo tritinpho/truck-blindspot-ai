@@ -15,10 +15,12 @@ const DIAG_TOPICS = ["bsw/sensor/#", "bsw/detection/#"];
 export class Bus {
   private client: mqtt.MqttClient;
   private state: AppState;
+  private validZoneIds: Set<string>;
   private diagSubscribed = false;
 
-  constructor(url: string, state: AppState) {
+  constructor(url: string, state: AppState, validZoneIds: Set<string>) {
     this.state = state;
+    this.validZoneIds = validZoneIds;
     this.client = mqtt.connect(url);
 
     this.client.on("connect", () => {
@@ -36,13 +38,20 @@ export class Bus {
     } catch {
       return; // ignore malformed payloads
     }
+    // Trust boundary (anonymous broker): a non-object payload (JSON null / number / array) must not
+    // reach the per-branch field access below — `null.component` / `null.sensor_id` would throw in
+    // this handler. Drop it here; the zone branch is additionally shape-checked by isRenderableZone.
+    if (typeof data !== "object" || data === null) return;
     const now = performance.now();
     const parts = topic.split("/");
 
     if (parts[1] === "zone") {
       // Drop spoofed/skewed zone messages at the boundary (unknown severity or a non-numeric
       // nearest_range_m would otherwise throw in the rAF loop and freeze the display — validate.ts).
-      if (!isRenderableZone(data)) return;
+      // Also reject any zone_id not in the shipped config: a ghost/retained id the map never renders
+      // must not drive audio or (via standby) suppress it (select.ts scopes policy to active zones,
+      // but unknown ids default to "enabled" there, so they are gated out here at ingest instead).
+      if (!isRenderableZone(data) || !this.validZoneIds.has(data.zone_id)) return;
       this.state.zones.set(data.zone_id, { state: data, receiptMono: now });
       this.state.lastZoneReceiptMono = now;
       this.state.sawFirstZone = true;

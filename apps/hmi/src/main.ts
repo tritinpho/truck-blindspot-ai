@@ -29,7 +29,7 @@ const configEnabled = new Map(cfg.zones.map((z) => [z.id, z.enabled]));
 
 const scene = new Scene(document.getElementById("scene") as HTMLCanvasElement, cfg);
 const audio = new AudioEngine();
-const bus = new Bus(BROKER, state);
+const bus = new Bus(BROKER, state, new Set(cfg.zones.map((z) => z.id)));
 
 const callbacks: UICallbacks = {
   toggleMute() {

@@ -86,6 +86,7 @@ def main() -> None:
     client.loop_start()
 
     last_hb = 0.0
+    tick_fails = 0
     try:
         while True:
             tick = time.time()
@@ -97,10 +98,21 @@ def main() -> None:
                 states, _ = svc.collect_tick(mono_ms(), now_ms())
                 for st in states:
                     client.publish(f"bsw/zone/{st['zone_id']}", json.dumps(st), qos=0, retain=True)
+                tick_fails = 0
             except Exception as e:  # noqa: BLE001 — last-resort liveness guard
+                tick_fails += 1
                 print(f"[fusion] tick error (continuing): {e!r}")
             if tick - last_hb >= HEARTBEAT_S:
-                client.publish("bsw/health/fusion", health("ok", f"{svc.sensors_seen()} sensors seen"), qos=0)
+                # The heartbeat must reflect tick health. If ticks are persistently failing the zone
+                # stream is stalled, so a steady "ok" heartbeat would keep the HMI in MONITORING on a
+                # frozen map — exactly the failure ADR-0006 forbids. Publish a fault instead so the
+                # HMI trips SIGNAL_LOST. (One stray tick error still heartbeats ok.)
+                if tick_fails >= 3:
+                    client.publish("bsw/health/fusion",
+                                   health("fault", f"tick failing ({tick_fails} consecutive)"), qos=0)
+                else:
+                    client.publish("bsw/health/fusion",
+                                   health("ok", f"{svc.sensors_seen()} sensors seen"), qos=0)
                 last_hb = tick
             time.sleep(max(0.0, 1.0 / TICK_HZ - (time.time() - tick)))
     except KeyboardInterrupt:
