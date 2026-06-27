@@ -1,7 +1,7 @@
 # services/fusion-engine — the "bộ xử lý trung tâm"
 
 Python service: subscribe to `bsw/sensor/#`, `bsw/detection/#`, `bsw/vehicle`; resolve each
-sensor → zone via [`config/sensors.json`](../../config/sensors.example.json); compute per-zone
+sensor → zone via [`config/sensors.example.json`](../../config/sensors.example.json); compute per-zone
 severity with debounce + context; publish consolidated `bsw/zone/{zone_id}` (retained) and a
 `bsw/health/fusion` heartbeat. Staleness/age is measured from **local arrival time**
 ([ADR-0008](../../docs/adr/ADR-0008-time-and-clock-domains.md)). Spec:

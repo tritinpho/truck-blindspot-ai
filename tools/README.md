@@ -4,6 +4,7 @@ Scripts that support development, demos, and the feasibility evaluation (Nội d
 
 | Tool | Status | Purpose |
 |------|--------|---------|
+| `demo.py` | S5 | **one-command launcher** — broker + fusion + HMI up, then the S3 demo ([17](../docs/17-demo-and-run.md)) |
 | `publish_sample.py` | S0 | publish one sample `bsw/sensor` reading — broker smoke test |
 | `sim_drive.py` | S1 | one-sensor sweep (RIGHT SAFE→DANGER→SAFE) — the vertical-slice driver |
 | `sim_demo.py` | S3 | scripted multi-zone timeline that demos the whole HMI (zones, icons, banner, escalating audio, context boost, park-standby, sensor dropout → UNKNOWN) |
@@ -11,8 +12,9 @@ Scripts that support development, demos, and the feasibility evaluation (Nội d
 | `log_replay.py` | S4 | recompute metrics from recorded `logs/events.jsonl` ([11 §11.6](../docs/11-evaluation-plan.md)) |
 | `latency_observer.py` | S4 | single-observer, single-clock end-to-end latency ([ADR-0008](../docs/adr/ADR-0008-time-and-clock-domains.md) #3) |
 | `threshold_sweep.py` | S6 | sweep debounce levers → sensitivity/false-alarm trade-off, justify the operating point ([19](../docs/19-tuning-and-operating-point.md), NFR-09) |
+| `eval_report.py` | S6 | regenerate the evaluation figures → [`docs/_generated/eval-figures.md`](../docs/_generated/eval-figures.md), driving the real engine over the scenarios |
 
-All of the above exist (S0→S5). The geometric model + scenarios + deterministic runner + the shared
+All of the above exist (S0→S6). The geometric model + scenarios + deterministic runner + the shared
 per-tick wire stream (`scenario_tick_messages`) they use live in [`sim/`](../sim/); the L3 suite is
 [`tests/test_scenarios.py`](../tests/test_scenarios.py) and the live-path integration shim is
 [`tests/test_integration_shim.py`](../tests/test_integration_shim.py). One-command bring-up + the

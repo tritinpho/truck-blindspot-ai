@@ -63,8 +63,8 @@ The truck graphic is the proposal's "sơ đồ top-view của xe tải"; zones a
 
 ## 6.5 Technical rendering
 
-- **Stack:** React + TypeScript; the truck/zone scene drawn on a single **HTML5 Canvas**
-  (or SVG) layer for cheap, smooth ≥10 Hz redraws (NFR-02). Rationale: [ADR-0003](adr/ADR-0003-hmi-stack.md).
+- **Stack:** vanilla TypeScript ES modules (Vite, no framework — [ADR-0009](adr/ADR-0009-hmi-framework-vanilla-ts.md)); the truck/zone scene drawn on a single **HTML5 Canvas**
+  layer for cheap, smooth ≥10 Hz redraws (NFR-02). Rationale: [ADR-0003](adr/ADR-0003-hmi-stack.md), refined by [ADR-0009](adr/ADR-0009-hmi-framework-vanilla-ts.md).
 - **Data in:** subscribe to retained `bsw/zone/#` over MQTT-WebSocket; update on each message.
   Late join shows correct state instantly thanks to retained messages.
 - **Responsive:** the scene scales to the screen (7" dashboard panel, tablet, or a laptop

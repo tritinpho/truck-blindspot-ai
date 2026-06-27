@@ -50,7 +50,7 @@ To validate NFR-04 / FR-09 the simulator can:
 
 | Option | Pros | Use when |
 |--------|------|----------|
-| **Web simulator** (React, shares HMI's canvas code) | Visual, draggable, demo-friendly, no install | Demos, UX work, teaching |
+| **Web simulator** (vanilla TS, shares HMI's canvas code) | Visual, draggable, demo-friendly, no install | Demos, UX work, teaching |
 | **Python scenario runner** (`tools/`) | Scriptable, CI-friendly, deterministic | Automated regression tests, eval data generation |
 
 Recommend building both: the web sim for people, the Python runner for tests. They emit

@@ -124,7 +124,7 @@ sequence, not in parallel. Two consequences shape everything below:
   noise stats to confirm/refine.
 - [x] **Day/night/auto HMI theme** (cosmetic polish) — high-contrast daylight + dark night mode,
   Settings → Theme, persisted, auto-by-time-of-day; severity semantics + color-blind-safe channels
-  unchanged across themes. tsc/build/16 tests green; both themes visually verified.
+  unchanged across themes. tsc/build/26 tests green; both themes visually verified.
 - [ ] Demo build packaging — **deferred (cut-first cosmetic, §16.7)**; not needed for the milestone.
 - **W:** if a student has ESP32 group-fire firmware on the bench, begin the G4 hand-off.
 - **Exit:** tuned defaults ✅ (data-justified); demo build (cosmetic, pending); green light for G4

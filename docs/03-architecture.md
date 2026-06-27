@@ -165,29 +165,31 @@ flowchart LR
   reboots a wedged Pi, and the HMI's freshness clock degrades the map to UNKNOWN if the fusion
   heartbeat / zone stream stalls — converting the frozen-green failure mode into a visible fault.
 
-## 3.7 Proposed repository structure
+## 3.7 Repository structure
 
 ```
 truck-blindspot-ai/
 ├── docs/                      # this documentation set
-├── config/                    # zones.json, sensors.json, thresholds
+├── config/                    # zones.example.json, sensors.example.json, thresholds
 ├── schemas/                   # JSON Schemas (contract source of truth)
 ├── services/
 │   ├── fusion-engine/         # Python: subscribe sensors -> publish zones
 │   └── vehicle-adapter/       # Python: GPIO/OBD -> bsw/vehicle (optional)
 ├── apps/
-│   ├── hmi/                   # web app (React + TS + Canvas), kiosk
+│   ├── hmi/                   # web app (vanilla TS + Vite + Canvas), kiosk
 │   └── simulator/             # scene editor -> synthetic messages
 ├── firmware/
 │   └── sensor-node-esp32/     # reference firmware (HW track collaboration)
+├── sim/                       # geometric model + scenarios + deterministic runner
+├── tests/                     # contract + scenario + integration suites (L1-L3)
 ├── deploy/
 │   ├── docker-compose.yml     # dev: broker + fusion + hmi + sim
-│   └── pi/                    # systemd units, kiosk autostart, mosquitto.conf
+│   └── mosquitto/             # broker config + ACL template (22 security-hardening)
 └── tools/                     # log replay, eval scripts, scenario runner
 ```
 
 This layout follows the container view: one folder per deployable, contracts shared at
-the root. It is a *recommendation* for the implementation phase, not yet populated.
+the root — and is the repository's current layout.
 
 ## 3.8 Cross-cutting concerns
 
