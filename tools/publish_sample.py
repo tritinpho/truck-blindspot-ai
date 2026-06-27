@@ -5,7 +5,7 @@ Proves the contract end-to-end on a running broker:
     docker compose -f deploy/docker-compose.yml up -d
     python tools/publish_sample.py            # -> bsw/sensor/right_mid
 
-Subscribe to watch it:  mosquitto_sub -t 'bsw/#' -v   (or the HMI skeleton's console).
+Subscribe to watch it:  mosquitto_sub -t 'bsw/#' -v   (or the HMI's diagnostics view).
 """
 from __future__ import annotations
 
