@@ -53,14 +53,14 @@ Broker override: `VITE_BROKER_WS=ws://<host>:9001`.
 
 ```bash
 npm run typecheck    # tsc --noEmit
-npm test             # node --test — 16 unit tests on the safety-critical pure logic
+npm test             # node --test — 26 unit tests on the safety-critical pure logic
 npm run build        # tsc + vite production bundle
 ```
 
 `test/` covers the fail-loud core directly under Node (type-stripped, no DOM/bundler):
 `liveness.ts` (warming-up → monitoring → SIGNAL-LOST, the freshness boundary, LWT-fault,
-recovery) and `select.ts` (worst-zone banner by `risk_weight × severity`; single-worst audio;
-standby/mute → silent).
+recovery), `select.ts` (worst-zone banner by `risk_weight × severity`; single-worst audio;
+standby/mute → silent), and `validate.ts` (the wire-boundary message validators).
 
 ## Architecture (vanilla TS modules, ADR-0009)
 

@@ -81,8 +81,8 @@ readings are noisy. Two mechanisms:
    healthy reading for `stale_after_ms` **and** `stale_confirm` consecutive missed sample
    windows (default `stale_confirm = 2`); the one-shot fault chime is **rate-limited and
    enforced HMI-side** (`fault_chime_min_interval_ms`, default 10 s) — the fusion engine emits no
-   chime; the HMI reads this value from `alerting.fault_chime_min_interval_ms` and shares one
-   limiter across all zones — so Wi-Fi jitter inside a metal body
+   chime; the HMI reads this value from `alerting.fault_chime_min_interval_ms` and enforces it in
+   `audio.ts`, sharing one limiter across all zones — so Wi-Fi jitter inside a metal body
    ([ADR-0002](adr/ADR-0002-message-bus.md)) cannot nag. Set `stale_after_ms` to **≥ 3× the
    slowest expected sample period** (~600 ms for 5 Hz ultrasonic; the example uses 700 ms).
 4. **Recovery adopts the current reading (fail-toward-safety).** *Leaving* UNKNOWN is **not** gated
@@ -169,8 +169,8 @@ to the most dangerous zone first.
 
 `confirm`, `release`, `margin_m`, `immediate_danger_factor`, `stale_after_ms`, `stale_confirm`,
 `fault_chime_min_interval_ms` (HMI-side, read from config; the fusion engine emits no chime),
-per-zone `caution_m`/`danger_m`, `risk_weight` (HMI-side priority, not a live `set_threshold`
-field), VRU threshold multiplier, speed bands
+per-zone `caution_m`/`danger_m`, `risk_weight` (HMI-side priority; live-tunable via
+`set_threshold`), VRU threshold multiplier, speed bands
 (`low_max`/`high_min`/`highway_side_factor`), audio frequencies, mute timeout. The distance
 thresholds are adjustable via `bsw/cmd/set_threshold` during evaluation to find the
 false-alarm/sensitivity sweet spot (NFR-09).

@@ -74,11 +74,11 @@ them into one demoable, reproducible pipeline and closed the remaining gaps:
 
 ## Test inventory
 
-`pytest -q tests/ services/fusion-engine/tests` → **86 passed, 2 skipped** (the broker-backed test,
+`pytest -q tests/ services/fusion-engine/tests` → **124 passed, 2 skipped** (the broker-backed test,
 which runs in the CI `integration` job / a local `docker compose up`).
 
-- L1 contract: 13 · L2 fusion (incl. bsw/cmd): 32 · L3 scenarios + tool cores: 16 ·
-  L3 integration shim: 14 · reproducibility: 11. HMI unit tests (Node): 16 (`cd apps/hmi && npm test`).
+- L1 contract: 26 · L2 fusion (incl. bsw/cmd): 47 · L3 scenarios: 12 + tool cores: 10 ·
+  L3 integration shim: 14 · reproducibility: 11 · eval-figure: 4. HMI unit tests (Node): 26 (`cd apps/hmi && npm test`).
 
 ## CI approach (decision)
 

@@ -46,8 +46,8 @@ python tools/threshold_sweep.py
 python tools/scenario_runner.py --latency
 
 # the test evidence itself:
-pytest -q tests/ services/fusion-engine/tests        # 105 passed, 2 skipped (broker)
-cd apps/hmi && npm test                              # 16 HMI unit tests
+pytest -q tests/ services/fusion-engine/tests        # 124 passed, 2 skipped (broker)
+cd apps/hmi && npm test                              # 26 HMI unit tests
 ```
 
 [`tools/eval_report.py`](../tools/eval_report.py) drives the **real** fusion engine over the scripted
@@ -60,20 +60,20 @@ regenerates them.
 
 ## 21.2 Test inventory & coverage (L1–L3, evidence base)
 
-`pytest -q tests/ services/fusion-engine/tests` → **105 passed, 2 skipped** (the broker-backed test
+`pytest -q tests/ services/fusion-engine/tests` → **124 passed, 2 skipped** (the broker-backed test
 runs in the CI `integration` job / a local `docker compose up`). Per level:
 
 | Level | Suite | Count | Proves |
 |-------|-------|:-----:|--------|
-| **L1** contract | [`tests/test_contracts.py`](../tests/test_contracts.py) | 23 | every message + both configs + the captured-firmware samples validate vs `schemas/`; contract-convention lint (G4) |
-| **L2** fusion logic | [`services/fusion-engine/tests/`](../services/fusion-engine/tests/) | 32 | severity, debounce, hysteresis, confirm-by-range, staleness, context, `bsw/cmd` |
+| **L1** contract | [`tests/test_contracts.py`](../tests/test_contracts.py) | 26 | every message + both configs + the captured-firmware samples validate vs `schemas/`; contract-convention lint (G4) |
+| **L2** fusion logic | [`services/fusion-engine/tests/`](../services/fusion-engine/tests/) | 47 | severity, debounce, hysteresis, confirm-by-range, staleness, context, `bsw/cmd` |
 | **L3** scenarios | [`tests/test_scenarios.py`](../tests/test_scenarios.py) | 12 | S1–S6 + F1/F2/F3/F5 through the real engine in-process |
 | **L3** integration shim | [`tests/test_integration_shim.py`](../tests/test_integration_shim.py) | 14 | the live path (publisher → bus → fusion → retained `bsw/zone` → subscriber) matches in-process outcomes |
 | reproducibility | [`tests/test_reproducibility.py`](../tests/test_reproducibility.py) | 11 | identical scenario → byte-identical `events.jsonl` + identical replayed metrics |
-| tool cores | [`tests/test_tools.py`](../tests/test_tools.py) | 9 | `log_replay` / `latency_observer` metric maths |
+| tool cores | [`tests/test_tools.py`](../tests/test_tools.py) | 10 | `log_replay` / `latency_observer` metric maths |
 | eval-figure generator | [`tests/test_eval_report.py`](../tests/test_eval_report.py) | 4 | the report figures stay reproducible + the headline invariants hold |
 | broker (real TCP) | [`tests/test_integration_broker.py`](../tests/test_integration_broker.py) | 2 *(skip)* | same assertions over real paho+TCP (CI integration job) |
-| **HMI** unit (Node) | [`apps/hmi/`](../apps/hmi/) | 16 | liveness clock, worst-zone/audio select, theme — browser-free |
+| **HMI** unit (Node) | [`apps/hmi/`](../apps/hmi/) | 26 | liveness clock, worst-zone/audio select, wire-boundary validate — browser-free |
 
 ---
 

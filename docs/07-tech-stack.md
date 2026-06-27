@@ -12,8 +12,8 @@ open-source. Detailed trade-offs are in the ADRs ([`adr/`](adr/)).
 | Sensor nodes | **ESP32 + HC-SR04 ultrasonic** (proto); radar/IR upgrade path | Very low cost, Wi-Fi/UART/CAN capable, huge community. [ADR-0004](adr/ADR-0004-sensor-modality.md) |
 | Message bus | **MQTT (Mosquitto)** | Lightweight pub/sub; MCU + browser friendly; enables sim/real parity. [ADR-0002](adr/ADR-0002-message-bus.md) |
 | Fusion engine | **Python 3** (paho-mqtt) | Fast to write, ample for these data rates, great for students. |
-| HMI | **React + TypeScript + Canvas**, Chromium kiosk | Cross-platform, demoable anywhere, doubles as infographic. [ADR-0003](adr/ADR-0003-hmi-stack.md) |
-| Simulator | **Web (React)** or **Python** producer | Same contracts as real sensors; the "computer simulation" deliverable. [ADR-0005](adr/ADR-0005-sim-real-parity.md) |
+| HMI | **Vanilla TypeScript + Vite + Canvas**, Chromium kiosk | Cross-platform, demoable anywhere, doubles as infographic. [ADR-0003](adr/ADR-0003-hmi-stack.md), [ADR-0009](adr/ADR-0009-hmi-framework-vanilla-ts.md) |
+| Simulator | **Web (vanilla TS)** or **Python** producer | Same contracts as real sensors; the "computer simulation" deliverable. [ADR-0005](adr/ADR-0005-sim-real-parity.md) |
 | Camera AI (phase 2) | **Pi Camera + TFLite/ONNX** (YOLO-nano / MobileNet-SSD) | On-device VRU classification at low cost. |
 | Logging | **SQLite + JSONL** | Zero-config local black-box for the evaluation report. |
 | Packaging/deploy | **Docker Compose** (dev) + **systemd** (Pi) | One-command dev; reliable boot on the Pi. |

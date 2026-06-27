@@ -15,7 +15,7 @@ Everything here needs **no hardware** (sim/real parity, [ADR-0005](adr/ADR-0005-
 - **Docker** (for the one-command broker + fusion bring-up), or a local Mosquitto.
 - **Python 3.11+** (`pip install -r tests/requirements.txt` for the suite; the fusion engine also
   needs `pip install -r services/fusion-engine/requirements.txt` to run outside Docker).
-- **Node 20+** (only to run the HMI dev server; the served HMI image needs nothing local).
+- **Node 22+** (only to run the HMI dev server / `npm test`; the served HMI image needs nothing local).
 
 ## 1. Tests first — no broker needed
 
