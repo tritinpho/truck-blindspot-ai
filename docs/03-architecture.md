@@ -121,11 +121,11 @@ sequenceDiagram
 
     SN->>BR: bsw/sensor/right_mid {range: 0.8m, present: true}
     BR->>FE: deliver reading
-    Note over FE: map sensor->zone RIGHT;<br/>0.8m < danger threshold;<br/>debounce confirms;<br/>turn-signal RIGHT active -> escalate
+    Note over FE: map sensor->zone RIGHT<br/>0.8m < danger threshold<br/>debounce confirms<br/>turn-signal RIGHT active -> escalate
     FE->>BR: bsw/zone/RIGHT {severity: DANGER, object: motorbike}
     BR->>HMI: deliver zone state
     HMI->>DRV: RIGHT zone flashes red + fast beep
-    Note over FE: object leaves; after release-debounce
+    Note over FE: object leaves<br/>after release-debounce
     FE->>BR: bsw/zone/RIGHT {severity: SAFE}
     BR->>HMI: deliver zone state
     HMI->>DRV: RIGHT zone returns to neutral, beep stops
