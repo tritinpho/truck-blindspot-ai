@@ -1,8 +1,9 @@
 # Contributing
 
-Guide for the project team and collaborators working on the BSW software. The project is in
-the **design phase**; this document covers how to contribute to the docs now and how the dev
-workflow will look once code lands (per [`docs/03-architecture.md`](docs/03-architecture.md) §3.7).
+Guide for the project team and collaborators working on the BSW software. The software core is
+built — **M3 is reached** (the full pipeline runs in simulation;
+[`docs/18-m3-summary.md`](docs/18-m3-summary.md)) — so this covers both the docs and the live
+development workflow (repository structure: [`docs/03-architecture.md`](docs/03-architecture.md) §3.7).
 
 ## Ground rules
 
@@ -25,10 +26,9 @@ workflow will look once code lands (per [`docs/03-architecture.md`](docs/03-arch
 4. Bilingual where it helps stakeholders (EN engineering text, VI terms in the glossary,
    [`docs/01-overview.md`](docs/01-overview.md) §1.6).
 
-## Planned development workflow (when code starts)
+## Development workflow
 
-> Targets the repository structure in [`docs/03-architecture.md`](docs/03-architecture.md) §3.7.
-> Not active yet — listed so the team aligns early.
+> Repository structure: [`docs/03-architecture.md`](docs/03-architecture.md) §3.7.
 
 ### Prerequisites
 - **Docker + Docker Compose** — run the whole stack (broker + fusion + HMI + simulator) on a laptop.
@@ -36,14 +36,15 @@ workflow will look once code lands (per [`docs/03-architecture.md`](docs/03-arch
 - **Node.js LTS** — HMI and web simulator.
 - **PlatformIO / Arduino** — ESP32 sensor-node firmware.
 
-### Expected day-to-day (illustrative)
+### Day-to-day
 ```bash
-# bring up the dev stack (no hardware needed — sim/real parity)
-docker compose -f deploy/docker-compose.yml up
+# tests — no hardware, no broker (L1 + L2 + L3 + integration shim + reproducibility)
+pip install -r tests/requirements.txt
+pytest -q tests/ services/fusion-engine/tests
+cd apps/hmi && npm ci && npm test        # HMI pure-logic tests (liveness / select / validate)
 
-# the simulator publishes synthetic bsw/sensor/# messages;
-# the fusion engine publishes bsw/zone/#; the HMI renders them.
-# open the HMI in a browser; open the simulator to place objects around the truck.
+# run the whole thing in one command: broker + fusion + HMI + a narrated scenario
+python tools/demo.py                      # → http://localhost:8080  (full run book: docs/17)
 ```
 
 ### Branch / commit / review

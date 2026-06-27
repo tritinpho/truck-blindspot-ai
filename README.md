@@ -124,6 +124,16 @@ pytest -q tests/ services/fusion-engine/tests        # L1 + L2 + L3 + integratio
 
 ### Run the full pipeline (M3 demo)
 
+**One command** (Docker) — brings up broker + fusion + HMI, opens the display, and plays a narrated
+S1 / S2+fault / S4 / S6 timeline that exercises the whole HMI (tints, banner, audio, standby, a
+dropout → UNKNOWN):
+
+```bash
+python tools/demo.py     # → opens http://localhost:8080 ; Ctrl-C stops, `python tools/demo.py --down` removes it
+```
+
+…or drive the pieces by hand:
+
 ```bash
 # 1. broker + fusion in one command
 docker compose -f deploy/docker-compose.yml up -d
