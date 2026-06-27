@@ -303,9 +303,12 @@ export class UI {
     b.style.background = s.fill;
     b.style.borderColor = s.stroke;
     b.style.color = s.accent;
+    // zone_id is gated to the config set in bus.ts and object_class is dict-mapped by className(),
+    // so neither can carry markup today — but this is the one banner sink built from wire-derived
+    // values, so escape at the sink too (like renderDiagnostics) rather than rely on the upstream gate.
     b.innerHTML =
-      `<strong>${s.glyph || "⚠"} ${zoneName(vm.banner.zoneId)}</strong>` +
-      (detail ? `<span class="sub">${detail}</span>` : "");
+      `<strong>${s.glyph || "⚠"} ${esc(zoneName(vm.banner.zoneId))}</strong>` +
+      (detail ? `<span class="sub">${esc(detail)}</span>` : "");
   }
 
   private renderMute(vm: RenderVM): void {

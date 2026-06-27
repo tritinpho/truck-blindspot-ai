@@ -117,12 +117,15 @@ def live(sc, host: str, port: int, dt_ms: int, loops: int) -> None:
             # every tick (a constant DC offset, not jitter) — so the live noisy-boundary demo never
             # exercises debounce. A per-loop Random(sc.seed) gives real jitter, identical each loop.
             rng = Random(sc.seed)
+            next_tick = time.time()
             for tick in range(n + 1):
                 now = int(time.time() * 1000)
                 # same per-tick wire stream the integration shim asserts on (sim.scenario_tick_messages)
                 for topic, payload in scenario_tick_messages(simu, sc, tick, dt_ms, ts=now, rng=rng):
                     client.publish(topic, json.dumps(payload))
-                time.sleep(dt_ms / 1000.0)
+                # deadline-based pacing so publish time doesn't make the effective tick rate drift slow
+                next_tick += dt_ms / 1000.0
+                time.sleep(max(0.0, next_tick - time.time()))
     except KeyboardInterrupt:
         print("\n[live] stopping")
     finally:

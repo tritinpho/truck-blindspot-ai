@@ -124,6 +124,7 @@ def drive(host: str = "localhost", port: int = 1883, hz: float = 12.0, once: boo
                 # resolve each active zone to its sensor
                 act = {ZONE_SENSOR[z]: spec for z, spec in active.items()}
                 t0 = time.time()
+                next_tick = t0
                 while (elapsed := time.time() - t0) < dur:
                     frac = elapsed / dur
                     client.publish("bsw/vehicle", vehicle_msg(veh), qos=0)
@@ -137,7 +138,10 @@ def drive(host: str = "localhost", port: int = 1883, hz: float = 12.0, once: boo
                             mode, a, b = spec
                             rng = ramp(frac, a, b) if mode == "approach" else round(b, 2)
                             client.publish(f"bsw/sensor/{sid}", sensor_msg(sid, True, rng), qos=0)
-                    time.sleep(period)
+                    # deadline-based pacing: sleep to the NEXT tick boundary, not `period` AFTER the
+                    # publishes finish, so the effective rate stays ~hz instead of drifting slower.
+                    next_tick += period
+                    time.sleep(max(0.0, next_tick - time.time()))
         print("[demo] done")
     except KeyboardInterrupt:
         print("\n[demo] stopping")

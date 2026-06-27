@@ -33,7 +33,7 @@ services:
       - ../config:/app/config:ro   # frozen-contract config; reload_config re-reads host edits
       # events.jsonl/.db on the host for tools/log_replay.py (11 §11.6). The container runs non-root
       # (UID 10001), so on a host that enforces bind-mount ownership this dir must be writable by it
-      # (CI runs `chmod 777 logs` first; Docker Desktop bind mounts are already permissive).
+      # (CI chowns it to UID 10001 first; Docker Desktop bind mounts are already permissive).
       - ../logs:/app/logs
     # connects to the broker by service name; if it starts first it restarts until the broker is up
     restart: unless-stopped

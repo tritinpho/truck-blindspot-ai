@@ -25,12 +25,18 @@ from sim.metrics import summarize_events  # noqa: E402
 
 
 def load_events(path: Path) -> list[dict]:
+    """Read JSONL transition rows. Tolerate a malformed line (skip + warn) instead of aborting the
+    whole replay on one bad row — matches summarize_events, which is built to ignore partial rows."""
     events = []
     with open(path, encoding="utf-8") as fh:
-        for line in fh:
+        for n, line in enumerate(fh, 1):
             line = line.strip()
-            if line:
+            if not line:
+                continue
+            try:
                 events.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                print(f"[replay] skipping malformed line {n}: {e.msg}", file=sys.stderr)
     return events
 
 

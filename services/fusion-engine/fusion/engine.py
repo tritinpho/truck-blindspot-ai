@@ -30,6 +30,17 @@ def _step_down(sev: str) -> str:
     return CAUTION if sev == DANGER else SAFE
 
 
+def _classify(nearest: float, caution_m: float, danger_m: float) -> str:
+    """The severity ladder (danger is the INNER threshold). Shared by the instantaneous S1 path
+    (`zone_severity`, raw thresholds) and the stateful tick (`_update_zone`, context-effective
+    thresholds) so the two ladders can never drift apart."""
+    if nearest <= danger_m:
+        return DANGER
+    if nearest <= caution_m:
+        return CAUTION
+    return SAFE
+
+
 def _valid_range(rng) -> bool:
     """A usable range: a finite, non-negative real number. Rejects the wire shapes that would
     otherwise reach `float()` in the tick — strings, lists, bools, NaN/Inf (json.loads accepts
@@ -170,11 +181,7 @@ def zone_severity(zone: ZoneCfg, readings: list[dict]) -> tuple[str, float | Non
     if not present:
         return SAFE, None  # healthy but clear -- empty-present => SAFE (R2-6)
     nearest = min(float(r["range_m"]) for r in present)
-    if nearest <= zone.danger_m:
-        return DANGER, nearest
-    if nearest <= zone.caution_m:
-        return CAUTION, nearest
-    return SAFE, nearest
+    return _classify(nearest, zone.caution_m, zone.danger_m), nearest
 
 
 # ----------------------------------------------------------------------- stateful core
@@ -358,7 +365,7 @@ class FusionEngine:
             nearest, target = None, SAFE
         else:
             nearest = min(float(r["range_m"]) for r in present)
-            target = DANGER if nearest <= eff_danger else CAUTION if nearest <= eff_caution else SAFE
+            target = _classify(nearest, eff_caution, eff_danger)
 
         # Recover from UNKNOWN immediately on a fresh healthy reading (05 §5.3). We ADOPT the current
         # reading's severity directly — including straight to DANGER — with NO confirm gate. This is
