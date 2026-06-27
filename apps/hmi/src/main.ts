@@ -59,6 +59,13 @@ const ui = new UI(cfg, state, callbacks);
 scene.fit();
 window.addEventListener("resize", () => scene.fit());
 
+// Build the audio graph at startup (best-effort). Autoplay policy starts the context SUSPENDED
+// until a gesture resumes it (the once pointer/keydown listener in ui.ts), or it starts RUNNING
+// immediately if Chromium is launched with --autoplay-policy=no-user-gesture-required (the kiosk
+// flag). Either way the graph now exists, so `audio.needsGesture` reflects the true state and the
+// "tap for sound" hint shows in a never-touched cabin instead of silently having no audio at all.
+audio.ensure();
+
 // --- transition tracking for the fault chime ---
 const prevSeverity = new Map<string, Severity>();
 let prevPhase = state.phase;
@@ -78,7 +85,11 @@ function renderFrame(): void {
   // Disabled zones (operator toggle or config) are greyed on the map; drop them here so they
   // don't keep driving the ear/banner from their stale retained state (05 §5.5/§5.6).
   const activeStates = activeZoneStates(states, state.localEnabled, configEnabled);
-  const standby = isStandby(states.values());
+  // Standby is read from ACTIVE zones only: a disabled or stale-retained zone must not drive audio
+  // policy. Otherwise a zone left with a retained standby=true (e.g. park → operator disables it →
+  // vehicle leaves park, so fusion stops refreshing it) would keep audio globally suppressed while
+  // the enabled zones are actively in DANGER.
+  const standby = isStandby(activeStates.values());
   const muted = isMuted(state, now);
 
   // --- audio: single worst severity while monitoring; standby/mute → silent ---
@@ -122,7 +133,7 @@ function renderFrame(): void {
     health: state.fusionHealth,
     muted,
     muteRemainingS: state.audio.mutedUntilMono ? (state.audio.mutedUntilMono - now) / 1000 : 0,
-    audioSuspended: audio.suspended,
+    audioNeedsGesture: audio.needsGesture,
   });
 
   if (state.view === "drive") {

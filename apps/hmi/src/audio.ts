@@ -54,9 +54,12 @@ export class AudioEngine {
     if (this.ctx.state === "suspended") void this.ctx.resume();
   }
 
-  /** True when the context exists but is blocked by autoplay policy (show a "tap for sound" hint). */
-  get suspended(): boolean {
-    return this.ctx != null && this.ctx.state === "suspended";
+  /** True when audio is NOT actively running — either never armed (ctx still null because no gesture
+   * has built it) or built-but-suspended by autoplay policy. Drives the persistent "tap for sound"
+   * hint: in a glance-only kiosk that is never touched, ctx stays null, so gating the hint on
+   * `suspended` alone (ctx != null) would hide the fact that NO alert tone can ever play. */
+  get needsGesture(): boolean {
+    return this.ctx == null || this.ctx.state === "suspended";
   }
 
   setVolume(v: number): void {

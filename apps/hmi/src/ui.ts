@@ -35,7 +35,7 @@ export interface RenderVM {
   health: Health | null;
   muted: boolean;
   muteRemainingS: number;
-  audioSuspended: boolean;
+  audioNeedsGesture: boolean;
 }
 
 function el<T extends HTMLElement>(id: string): T {
@@ -121,6 +121,10 @@ export class UI {
     this.titleEl.addEventListener("pointerup", cancelLp);
     this.titleEl.addEventListener("pointerleave", cancelLp);
     window.addEventListener("keydown", (e) => {
+      // Ignore the shortcut while typing in a control (e.g. focused on a settings slider/select),
+      // so a stray "d" from an attached keyboard can't yank the driver off the live drive view.
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
       if (e.key === "d" || e.key === "D") this.cb.setView("diagnostics");
       if (e.key === "Escape") this.cb.setView("drive");
     });
@@ -231,7 +235,7 @@ export class UI {
     this.renderBanner(vm);
     this.renderMute(vm);
     this.overlay.classList.toggle("hidden", vm.phase !== "WARMING_UP");
-    this.soundHint.classList.toggle("hidden", !vm.audioSuspended);
+    this.soundHint.classList.toggle("hidden", !vm.audioNeedsGesture);
     if (this.state.view === "diagnostics") this.renderDiagnostics(vm.animMs);
   }
 

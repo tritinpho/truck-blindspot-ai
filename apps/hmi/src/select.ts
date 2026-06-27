@@ -80,8 +80,10 @@ export function audioTarget(
   return worst === 2 ? "DANGER" : worst === 1 ? "CAUTION" : "SILENT";
 }
 
-/** Any zone reporting park-standby ⇒ standby (fusion sets the same value on every zone/tick). */
+/** Any zone reporting park-standby ⇒ standby (fusion sets the same value on every zone/tick).
+ * Strict `=== true`: `standby` is not validated at the bus boundary (validate.ts guards only the
+ * render-load-bearing fields), so a spoofed/garbled truthy non-boolean must not suppress all audio. */
 export function isStandby(states: Iterable<ZoneState>): boolean {
-  for (const st of states) if (st.standby) return true;
+  for (const st of states) if (st.standby === true) return true;
   return false;
 }
