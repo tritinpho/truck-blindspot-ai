@@ -94,7 +94,8 @@ jitter in a metal body ([ADR-0002](adr/ADR-0002-message-bus.md)), zones — and 
 flicker, a trust-killer (NFR-09).
 **Fix (applied).** Added a **stale-debounce** rule to [05 §5.3](05-warning-logic.md):
 `stale_confirm` consecutive missed windows (default 2) before UNKNOWN, and a rate-limited
-chime (`fault_chime_min_interval_ms`, default 10 s/zone). Relaxed the example `stale_after_ms`
+chime (`fault_chime_min_interval_ms`, default 10 s, one limiter shared across all zones).
+Relaxed the example `stale_after_ms`
 to **700 ms** (≥ 3× the 5 Hz sample period) and documented the rule in the schema. New tunables
 in the `alerting` config block and [05 §5.8](05-warning-logic.md).
 
