@@ -21,6 +21,8 @@ export interface SceneConfig {
   truckCentroid: [number, number];
   zones: ZoneCfg[];
   defaults: { caution_m: number; danger_m: number };
+  /** Min gap between fault chimes (05 §5.3); read from `alerting.fault_chime_min_interval_ms`. */
+  faultChimeMinIntervalMs: number;
 }
 
 interface RawZone {
@@ -36,6 +38,7 @@ interface RawConfig {
   truck_outline_norm: number[][];
   defaults?: { caution_m?: number; danger_m?: number };
   zones: RawZone[];
+  alerting?: { fault_chime_min_interval_ms?: number };
 }
 
 export function centroid(points: number[][]): [number, number] {
@@ -61,11 +64,19 @@ export function loadSceneConfig(): SceneConfig {
     centroid: centroid(z.polygon_norm),
   }));
 
+  // Fault-chime rate limit (05 §5.3), enforced HMI-side and read from config here. Guard against a
+  // missing / non-finite / negative value: a NaN would make audio's `< interval` check never trip,
+  // so the chime could nag — fall back to the documented 10 s default instead.
+  const rawChime = raw.alerting?.fault_chime_min_interval_ms;
+  const faultChimeMinIntervalMs =
+    typeof rawChime === "number" && Number.isFinite(rawChime) && rawChime >= 0 ? rawChime : 10_000;
+
   return {
     vehicleProfile: raw.vehicle_profile ?? "unknown",
     truckOutline: raw.truck_outline_norm,
     truckCentroid: centroid(raw.truck_outline_norm),
     zones,
     defaults: { caution_m: dCaution, danger_m: dDanger },
+    faultChimeMinIntervalMs,
   };
 }

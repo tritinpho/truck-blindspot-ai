@@ -2,7 +2,9 @@
 //
 //   CAUTION → slow intermittent beep (~1.5 Hz)
 //   DANGER  → fast beep (~6 Hz, near-continuous)
-//   new fault (zone → UNKNOWN, or SIGNAL LOST) → one-shot chime, rate-limited (≥10 s)
+//   new fault (zone → UNKNOWN, or SIGNAL LOST) → one-shot chime, rate-limited (config-driven,
+//     default 10 s); the limiter is shared across all zones, so the worst Wi-Fi jitter still
+//     yields at most one chime per interval.
 //
 // Policy decisions (what to sound) live in select.ts; this module only PRODUCES sound. The
 // single worst severity sounds at a time (the caller passes one target). Timed mute and
@@ -17,8 +19,6 @@ const PATTERNS: Record<Exclude<AudioTarget, "SILENT">, Pattern> = {
   DANGER: { periodMs: 150, onMs: 95, freq: 920 },
 };
 
-const CHIME_MIN_INTERVAL_MS = 10_000; // matches fusion fault_chime_min_interval_ms (05 §5.3)
-
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private osc: OscillatorNode | null = null;
@@ -29,6 +29,15 @@ export class AudioEngine {
   private current: AudioTarget = "SILENT";
   private cycleStart = 0;
   private lastChimeMs = -Infinity;
+
+  /** Min gap between fault chimes, in ms (05 §5.3). main.ts feeds this from the loaded zones config
+   * (`alerting.fault_chime_min_interval_ms`); the 10 s default keeps the engine safe to construct
+   * standalone and when the config key is absent. */
+  private readonly chimeMinIntervalMs: number;
+
+  constructor(chimeMinIntervalMs = 10_000) {
+    this.chimeMinIntervalMs = chimeMinIntervalMs;
+  }
 
   /** Lazily build + resume the audio graph. Must be called from a user gesture (autoplay policy). */
   ensure(): void {
@@ -95,7 +104,7 @@ export class AudioEngine {
   /** One-shot two-tone fault chime, rate-limited so Wi-Fi jitter can't nag (05 §5.3). */
   chime(nowMs: number): void {
     if (!this.ctx || !this.masterGain) return;
-    if (nowMs - this.lastChimeMs < CHIME_MIN_INTERVAL_MS) return;
+    if (nowMs - this.lastChimeMs < this.chimeMinIntervalMs) return;
     this.lastChimeMs = nowMs;
 
     const now = this.ctx.currentTime;
