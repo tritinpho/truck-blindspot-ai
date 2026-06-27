@@ -91,6 +91,21 @@ def contract_lint(doc: dict) -> list[str]:
         elif doc.get("ts_kind") == "epoch_ms" and doc.get("ts", 0) < 1_000_000_000_000:
             warns.append('ts_kind="epoch_ms" but ts is small (not a real wall-clock epoch); an '
                          'RTC-less node should declare "monotonic_ms" (ADR-0008)')
+
+    if sid.startswith("bsw.cmd/"):
+        # The schema can't express the cmd's per-op `args` shape (it's an open bag), so lint the
+        # cross-field rules the engine enforces at runtime — caught here BEFORE the command hits the
+        # bus rather than only as a silent runtime rejection (engine.apply_cmd, 05 §5.2 / 04 §4.3.6).
+        op = doc.get("op")
+        args = doc.get("args") or {}
+        if op in ("set_threshold", "enable_zone", "disable_zone") and not args.get("zone_id"):
+            warns.append(f"{op} missing args.zone_id (04 §4.3.6)")
+        if op == "set_threshold":
+            d, c = args.get("danger_m"), args.get("caution_m")
+            if isinstance(d, (int, float)) and isinstance(c, (int, float)) and not isinstance(d, bool) \
+                    and not isinstance(c, bool) and d > c:
+                warns.append(f"set_threshold danger_m ({d}) > caution_m ({c}) — danger is the INNER "
+                             "threshold and must stay <= caution_m (05 §5.2); fusion will reject it")
     return warns
 
 

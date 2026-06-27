@@ -98,14 +98,16 @@ def live(sc, host: str, port: int, dt_ms: int, loops: int) -> None:
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     except (AttributeError, TypeError):
         client = mqtt.Client()
+    # Build the sim BEFORE connecting: if config load / geometry raises, we fail before there is a
+    # network loop thread to leak (loop_start runs only after a successful connect).
+    simu, _ = build(enable_camera=sc.enable_camera)
+    n = sc.duration_ms // dt_ms
     try:
         client.connect(host, port, 30)
     except OSError as e:
         print(f"[live] broker unreachable at {host}:{port} ({e})", file=sys.stderr)
         return
     client.loop_start()
-    simu, _ = build(enable_camera=sc.enable_camera)
-    n = sc.duration_ms // dt_ms
     print(f"[live] publishing {sc.id} ({sc.name}); Ctrl-C to stop")
     try:
         for _ in range(loops) if loops > 0 else iter(int, 1):

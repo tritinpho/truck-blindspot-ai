@@ -99,6 +99,12 @@ def main() -> None:
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     except (AttributeError, TypeError):
         client = mqtt.Client()
+    # Compute the period BEFORE connecting (a bad --hz of 0 would ZeroDivisionError after loop_start,
+    # leaking the network thread). argparse gives a float; guard the zero so it fails cleanly here.
+    if args.hz <= 0:
+        print(f"[demo] --hz must be > 0 (got {args.hz})", file=sys.stderr)
+        return
+    period = 1.0 / args.hz
     try:
         client.connect(args.host, args.port, 30)
     except OSError as e:
@@ -106,7 +112,6 @@ def main() -> None:
         return
     client.loop_start()
 
-    period = 1.0 / args.hz
     print(f"[demo] driving {len(ALL_SENSORS)} sensors @ {args.hz:g} Hz "
           f"({'one pass' if args.once else 'looping'}; Ctrl-C to stop)")
 

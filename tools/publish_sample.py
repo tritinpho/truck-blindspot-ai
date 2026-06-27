@@ -19,7 +19,8 @@ def main() -> None:
     ap.add_argument("--host", default="localhost")
     ap.add_argument("--port", type=int, default=1883)
     ap.add_argument("--sensor", default="right_mid")
-    ap.add_argument("--range", type=float, default=0.8, help="range_m; omit for 'not present'")
+    ap.add_argument("--range", type=float, default=None,
+                    help="range_m for a present reading; omit for a 'not present' (clear) reading")
     args = ap.parse_args()
 
     import paho.mqtt.publish as publish  # pip install paho-mqtt

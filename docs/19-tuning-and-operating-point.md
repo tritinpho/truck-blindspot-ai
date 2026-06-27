@@ -17,9 +17,12 @@ bench** noise statistics arrive.
 `tools/threshold_sweep.py` sweeps the FR-09 anti-flicker levers (`confirm`, `release_margin_m`,
 `release`, `immediate_danger_factor`) and scores each config on two axes:
 
-- **Detection (sensitivity)** — clean RIGHT *approach* scenarios (deep → 0.5 m; boundary → 0.9 m),
-  no context boost, real group-fire rate. Metric: danger-path **latency** (time from crossing
-  `danger_m` to confirmed DANGER) and did-it-reach-DANGER.
+- **Detection (sensitivity)** — two RIGHT cases, no context boost. *deep* = a **sudden close object**
+  (zone SAFE, then one sample at 0.45 m, deep inside `danger_m` 1.0 m) — the ADR-0007 confirm-by-range
+  fast path, sampled continuously so the single deep sample isn't dropped by the ~5 Hz group schedule.
+  *boundary* = a **smooth approach** to 0.9 m (just inside `danger_m`) at the real group-fire rate.
+  Metric: danger-path **latency** (time from crossing `danger_m` to confirmed DANGER) and
+  did-it-reach-DANGER.
 - **Nuisance (false-alarm proxy)** — a noisy object hovering *just outside* `danger_m` (1.06 m and
   1.15 m vs `danger_m` 1.0 m, σ = 0.12–0.15 m, continuous sampling). Correct behaviour is to **hold
   CAUTION**. Metrics, averaged over many noise seeds: spurious **DANGER episodes/run**, **dwell %**
@@ -40,15 +43,21 @@ i.e. we must leave ~70 ms of headroom in-sim. This is what correctly rules out `
 | 1 | 0.10 | 0/0 | 70/70 | yes | 1.21 | 76.5 | 0.92 |
 | 1 | 0.20 | 0/0 | 70/70 | yes | 0.75 | 82.5 | 0.12 |
 | 1 | 0.30 | 0/0 | 70/70 | yes | 0.67 | 86.0 | 0.00 |
-| **2** | **0.20** | **100/100** | **170/170** | **yes** | **0.46** | **58.2** | **0.00** ← **chosen (current default)** |
-| 2 | 0.10 | 100/100 | 170/170 | yes | 0.58 | 48.8 | 0.29 |
-| 2 | 0.30 | 100/100 | 170/170 | yes | 0.46 | 62.8 | 0.00 |
-| 3 | 0.10–0.30 | 200/200 | 270/270 | **no** (>200 ms danger-path) | 0.25 | 30.8–44.8 | ≤0.08 |
+| **2** | **0.20** | **0/100** | **70/170** | **yes** | **0.46** | **58.2** | **0.00** ← **chosen (current default)** |
+| 2 | 0.10 | 0/100 | 70/170 | yes | 0.58 | 48.8 | 0.29 |
+| 2 | 0.30 | 0/100 | 70/170 | yes | 0.46 | 62.8 | 0.00 |
+| 3 | 0.10–0.30 | 0/200 | 70/270 | **no** (>250 ms boundary-path) | 0.25 | 30.8–44.8 | ≤0.08 |
+
+The *deep* (sudden-object) latency is **0 ms for every `confirm`**: confirm-by-range escalates a
+sample inside `danger_m` in one tick regardless of `confirm` (ADR-0007). So `confirm` only gates the
+*boundary* (just-inside-`danger_m`) path — which is the column that decides the budget.
 
 `release` sweep (confirm=2, margin=0.2): dwell rises 47%→61% as release 2→6 with flicker reaching 0
 by release=3; `release=4` keeps flicker 0 with sticky-clear bias toward safety.
-`immediate_danger_factor` 0.4–0.7: no effect on these scenarios (it only changes the *deep* 1-tick
-path), so 0.6 is retained.
+`immediate_danger_factor` 0.4–0.7 on the *deep* case: at **0.4** the 0.45 m object is **not** "deep"
+(0.45 > 0.4·`danger_m`) so it falls back to the normal confirm path (deep latency jumps 0 → 100 ms);
+at **0.5–0.7** it escalates in one tick (0 ms). So **0.6 is data-justified** — it captures a sudden
+object inside ~0.6·`danger_m` immediately, with margin below the 0.45 m test point.
 
 ## 19.3 Decision — the operating point
 
@@ -56,15 +65,15 @@ path), so 0.6 is retained.
 
 | Tunable | Value | Why (from the sweep) |
 |---|---|---|
-| `confirm` | **2** | `confirm=3` is the lowest-nuisance row but its est-real latency (270 ms) **breaks the 200 ms danger-path budget**; `confirm=1` meets latency but is far too trigger-happy (≈1 false DANGER/run, flicker ≤0.92). `confirm=2` is the knee: 100 ms sim / ~170 ms est-real, comfortably within budget. |
+| `confirm` | **2** | `confirm=3` is the lowest-nuisance row but its est-real **boundary** latency (270 ms) **breaks the 250 ms boundary-path budget** (the *deep* danger-path is met in one tick by confirm-by-range, independent of `confirm`); `confirm=1` meets latency but is far too trigger-happy (≈1 false DANGER/run, flicker ≤0.92). `confirm=2` is the knee: a just-inside-`danger_m` approach confirms in 100 ms sim / ~170 ms est-real, comfortably within budget. |
 | `release_margin_m` | **0.20** | The only `confirm=2` setting with **zero flicker** *and* the fewest false-DANGER episodes (0.46). `0.10` chatters (flicker 0.29); `0.30` is stickier (dwell 62.8% vs 58.2%). FR-09 names *no flicker* as the target, so 0.20 wins. |
 | `release` | **4** | Slower-to-clear than to-warn (safety bias); flicker already 0, dwell penalty small. |
-| `immediate_danger_factor` | **0.6** | Preserves the ADR-0007 deep-danger 1-tick fast path; no effect on the boundary trade-off. |
+| `immediate_danger_factor` | **0.6** | The ADR-0007 deep-danger 1-tick fast path: a sudden object inside 0.6·`danger_m` escalates immediately (0 ms). The sweep confirms `0.4` drops a 0.45 m sudden object to the normal confirm path (+100 ms); `0.6` captures it with margin and leaves the boundary trade-off untouched. |
 | per-zone `danger_m`/`caution_m`, `risk_weight` | unchanged | Geometry/zone-design choices; **live-tunable at runtime via `bsw/cmd/set_threshold`** (S5) without a rebuild, so they can be adjusted on the bench during L4 without re-deploying. |
 
 No config change was required — the sweep **validates** the designed defaults sit at the
-sensitivity/false-alarm knee under the real-path latency constraint. The 91-test suite is therefore
-unchanged.
+sensitivity/false-alarm knee under the real-path latency constraint, so the test suite is unchanged
+by the tuning decision.
 
 ## 19.4 Honest read & next steps
 

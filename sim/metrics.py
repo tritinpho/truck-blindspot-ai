@@ -61,7 +61,9 @@ def summarize_events(events: list[dict]) -> dict:
     per_zone: dict[str, dict] = {}
     seq: dict[str, list[dict]] = {}
     for e in events:
-        z = e["zone_id"]
+        z = e.get("zone_id")
+        if z is None:
+            continue  # tolerate a malformed/partial row from an arbitrary external capture (log_replay)
         d = per_zone.setdefault(z, {"transitions": 0, "to_danger": 0, "to_unknown": 0, "flicker": 0})
         d["transitions"] += 1
         if e.get("to") == "DANGER":
@@ -74,7 +76,9 @@ def summarize_events(events: list[dict]) -> dict:
         flicker = 0
         for a, b in zip(evs, evs[1:]):
             # a quick reversal back to where we came from (e.g. CAUTION→DANGER→CAUTION) = flicker
-            if a.get("from") == b.get("to") and (b["ts"] - a["ts"]) <= FLICKER_MS:
+            ta, tb = a.get("ts"), b.get("ts")
+            if a.get("from") == b.get("to") and ta is not None and tb is not None \
+                    and (tb - ta) <= FLICKER_MS:
                 flicker += 1
         per_zone[z]["flicker"] = flicker
 

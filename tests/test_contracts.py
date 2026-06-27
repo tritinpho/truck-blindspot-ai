@@ -136,6 +136,22 @@ def test_lint_flags_fault_with_present_true():
     assert any("fault" in w for w in contract_lint(bad))
 
 
+def test_lint_flags_inverted_set_threshold():
+    """A set_threshold with danger_m > caution_m passes schema (args is an open bag) but the engine
+    rejects it (05 §5.2) — the offline self-check must warn so it's caught before the bus."""
+    bad = {"schema": "bsw.cmd/1", "ts": 1, "op": "set_threshold",
+           "args": {"zone_id": "RIGHT", "danger_m": 1.5, "caution_m": 0.8}}
+    assert any("must stay <= caution_m" in w for w in contract_lint(bad))
+    # the good cmd fixture (danger_m <= caution_m, zone_id present) stays lint-clean
+    good = _load(FIXTURE_DIR / "cmd.json")
+    assert contract_lint(good) == []
+
+
+def test_lint_flags_set_threshold_missing_zone_id():
+    bad = {"schema": "bsw.cmd/1", "ts": 1, "op": "set_threshold", "args": {"danger_m": 0.8}}
+    assert any("zone_id" in w for w in contract_lint(bad))
+
+
 def test_topic_lint_flags_sensor_id_mismatch():
     doc = {"schema": "bsw.sensor_reading/1", "sensor_id": "right_mid", "ts": 1,
            "ts_kind": "monotonic_ms", "modality": "ultrasonic", "present": False,

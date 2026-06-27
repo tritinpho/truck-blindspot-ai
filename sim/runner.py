@@ -71,7 +71,12 @@ class Timeline:
         return events
 
     def _states_at(self, t: int | None) -> dict:
-        tk = self.ticks[-1] if t is None else next(x for x in self.ticks if x["t"] == t)
+        if t is None:
+            tk = self.ticks[-1]
+        else:
+            tk = next((x for x in self.ticks if x["t"] == t), None)
+            if tk is None:
+                raise KeyError(f"no tick at t={t}ms (ticks are at dt_ms boundaries)")
         return tk["states"]
 
     def standby(self, t: int | None = None) -> bool:

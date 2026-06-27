@@ -19,7 +19,7 @@ jobs:
       - run: pip install -r tests/requirements.txt
       - run: pytest -q tests/test_contracts.py                       # L1 — contracts
       - run: pytest -q services/fusion-engine/tests                  # L2 — fusion logic + bsw/cmd
-      - run: pytest -q tests/test_scenarios.py tests/test_tools.py   # L3 — scenarios + eval-tool cores
+      - run: pytest -q tests/test_scenarios.py tests/test_tools.py tests/test_eval_report.py   # L3 — scenarios + eval-tool cores + report
       - run: pytest -q tests/test_integration_shim.py               # L3 — live path over a loopback bus
       - run: pytest -q tests/test_reproducibility.py                # 11 §11.6 — logs replay identically
 

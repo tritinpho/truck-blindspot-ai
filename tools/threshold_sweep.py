@@ -35,7 +35,7 @@ if hasattr(sys.stdout, "reconfigure"):
 from fusion.engine import load_config  # noqa: E402
 from sim import Sim, build, run_on  # noqa: E402
 from sim.metrics import danger_dwell_frac, danger_latency_ms, summarize_events  # noqa: E402
-from sim.scenarios import Scenario, approach, static  # noqa: E402
+from sim.scenarios import Scenario, Track, approach, static  # noqa: E402
 
 ZONES = REPO / "config" / "zones.example.json"
 SENSORS = REPO / "config" / "sensors.example.json"
@@ -52,8 +52,15 @@ PHYSICAL_PATH_MS = 70
 # Detection = clean approaches, no context boost (isolate the debounce), with the real group-fire
 # rate. (zone RIGHT: caution_m 1.8, danger_m 1.0.) budget = NFR-01 path target (ms).
 DETECTION = [
-    ("deep",     Scenario("DET-deep", "deep approach RIGHT", "TC-tune",
-                          [approach("RIGHT", 3.0, 0.5, 4000)], None, 4000), 200),   # danger-path
+    # deep = a SUDDEN close object: the zone sits SAFE, then one sample lands deep inside danger_m
+    # (<= immediate_danger_factor * danger_m). This is the case the ADR-0007 confirm-by-range 1-tick
+    # escalation exists for (a motorbike darting into the blind spot), and the ONLY shape that
+    # exercises immediate_danger_factor: a smooth approach passes through the 0.6–1.0 m band and is
+    # confirmed normally before it ever reaches deep range, so idf never fires on it. Continuous
+    # sampling (group_fire OFF) so the single deep sample isn't dropped by the ~5 Hz group schedule.
+    ("deep",     Scenario("DET-deep", "sudden close object RIGHT", "TC-tune",
+                          [Track("RIGHT", [(0, 2.5), (1500, 2.5), (1600, 0.45), (4000, 0.45)])],
+                          None, 4000, group_fire=False), 200),   # danger-path ≤200 (NFR-01)
     ("boundary", Scenario("DET-bnd", "boundary approach RIGHT", "TC-tune",
                           [approach("RIGHT", 3.0, 0.9, 4000)], None, 4000), 250),   # boundary-path ≤250 (NFR-01)
 ]
