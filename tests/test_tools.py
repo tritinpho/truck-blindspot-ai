@@ -67,6 +67,16 @@ def test_danger_latency_none_when_danger_precedes_crossing():
     assert danger_latency_ms([0, 100, 200], [1.5, 1.2, 0.9], ["DANGER"] * 3, 1.0) is None
 
 
+def test_danger_latency_measures_crossing_after_an_earlier_cleared_danger():
+    # multi-event: an early boost-DANGER (rng=1.5, never crosses base danger_m=1.0) clears to SAFE,
+    # then a genuine approach crosses at t=400 and confirms DANGER at t=500. The early DANGER must
+    # NOT suppress this crossing's latency (the pre-fix "first DANGER ever" logic returned None here).
+    ts = [0, 100, 200, 300, 400, 500]
+    rng = [1.5, 1.5, 2.0, 2.0, 0.9, 0.9]
+    sev = ["DANGER", "DANGER", "SAFE", "SAFE", "CAUTION", "DANGER"]
+    assert danger_latency_ms(ts, rng, sev, 1.0) == 100
+
+
 def test_danger_latency_none_when_never_danger():
     assert danger_latency_ms([0, 100, 200], [2.0, 0.9, 0.9],
                              ["SAFE", "CAUTION", "CAUTION"], 1.0) is None

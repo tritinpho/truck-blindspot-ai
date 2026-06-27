@@ -269,9 +269,11 @@ def render_markdown(report: dict) -> str:
           r["est_real_ms"] if r["est_real_ms"] is not None else "n/a"]
          for r in report["latency"]["rows"]]))
     if s.get("n"):
-        L.append(f"\n\n_n={s['n']} clean approach crossings · min {s['min']} · p50 {s['p50']} · "
+        L.append(f"\n\n_n={s['n']} clean approach crossing(s) · min {s['min']} · p50 {s['p50']} · "
                  f"max {s['max']} ms (sim) → est-real p50 ~{s['est_real_p50']} ms; "
-                 f"NFR-01 danger-path ≤ 200 ms. Indicative, not headline._")
+                 f"NFR-01 danger-path ≤ 200 ms. Only un-boosted approaches yield a latency "
+                 f"(context-boosted S2–S6 warn before the crossing), so n is small by construction "
+                 f"— indicative, not a distribution and not headline._")
 
     L.append("\n\n## 3. Ultrasonic group-fire rate (TC-F5, ADR-0007)\n")
     L.append(_md_table(

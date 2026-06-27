@@ -21,6 +21,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from random import Random
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
@@ -108,10 +109,15 @@ def live(sc, host: str, port: int, dt_ms: int, loops: int) -> None:
     print(f"[live] publishing {sc.id} ({sc.name}); Ctrl-C to stop")
     try:
         for _ in range(loops) if loops > 0 else iter(int, 1):
+            # Seed ONCE per loop, not per tick. scenario_tick_messages → readings_at defaults to a
+            # fresh Random(0) when rng is None, which would make a noisy scenario emit the SAME draw
+            # every tick (a constant DC offset, not jitter) — so the live noisy-boundary demo never
+            # exercises debounce. A per-loop Random(sc.seed) gives real jitter, identical each loop.
+            rng = Random(sc.seed)
             for tick in range(n + 1):
                 now = int(time.time() * 1000)
                 # same per-tick wire stream the integration shim asserts on (sim.scenario_tick_messages)
-                for topic, payload in scenario_tick_messages(simu, sc, tick, dt_ms, ts=now):
+                for topic, payload in scenario_tick_messages(simu, sc, tick, dt_ms, ts=now, rng=rng):
                     client.publish(topic, json.dumps(payload))
                 time.sleep(dt_ms / 1000.0)
     except KeyboardInterrupt:

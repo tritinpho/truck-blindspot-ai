@@ -19,14 +19,24 @@ def danger_latency_ms(ts: list[int], rng: list[float | None], sev: list[str],
     crossing (e.g. static-from-start, where the first reading recovers straight to DANGER), DANGER
     never fires, or DANGER preceded the crossing (a context boost warned early — not a latency).
     This isolates the operational approach case the NFR-01 danger-path budget is about."""
-    crossing = None
+    crossing_idx = None
     for i in range(1, len(ts)):
         outside_before = rng[i - 1] is None or rng[i - 1] > danger_m
         if outside_before and rng[i] is not None and rng[i] <= danger_m:
-            crossing = ts[i]
+            crossing_idx = i
             break
-    danger = next((ts[i] for i in range(len(ts)) if sev[i] == "DANGER"), None)
-    if crossing is None or danger is None or danger < crossing:
+    if crossing_idx is None:
+        return None
+    # If the zone was already in DANGER on the tick BEFORE the crossing, a context boost (widened
+    # threshold) warned ahead of the base-danger_m crossing — there is no crossing latency to report.
+    # Keying off the pre-crossing tick (not "first DANGER ever") is what fixes the multi-event case:
+    # an earlier boost-DANGER that has since cleared no longer suppresses a later genuine crossing,
+    # while a deep immediate escalation AT the crossing (prev tick not DANGER) still reads ~0 ms.
+    if sev[crossing_idx - 1] == "DANGER":
+        return None
+    crossing = ts[crossing_idx]
+    danger = next((ts[i] for i in range(crossing_idx, len(ts)) if sev[i] == "DANGER"), None)
+    if danger is None:
         return None
     return danger - crossing
 
